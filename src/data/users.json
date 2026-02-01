@@ -1,0 +1,56 @@
+[
+  {
+    "id": "student_1",
+    "email": "student@example.com",
+    "password": "password123",
+    "name": "NEET Aspirant"
+  },
+  {
+    "id": "user_1769941025349",
+    "name": "Harsh",
+    "email": "harshu@gmail.com",
+    "password": "626321"
+  },
+  {
+    "id": "user_1769941151685",
+    "name": "ak",
+    "email": "admin@gmail.com",
+    "password": "2580"
+  },
+  {
+    "id": "user_1769974907150",
+    "name": "harsh",
+    "email": "hk@gmail.com",
+    "password": "12345"
+  },
+  {
+    "id": "user_1769976338804",
+    "name": "harsh",
+    "email": "haa@gmail.com",
+    "password": "12345"
+  },
+  {
+    "id": "user_1769976487110",
+    "name": "aa",
+    "email": "ad@gmail.com",
+    "password": "123456"
+  },
+  {
+    "id": "user_1769976627287",
+    "name": "vivek",
+    "email": "vkk@gmail.com",
+    "password": "939915"
+  },
+  {
+    "id": "user_1769978248862",
+    "name": "aryan",
+    "email": "aryan@gmail.com",
+    "password": "12345"
+  },
+  {
+    "id": "user_1769978758882",
+    "name": "harhaa",
+    "email": "har@gmail.com",
+    "password": "123456"
+  }
+]
