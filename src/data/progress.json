@@ -1,35 +1,59 @@
 {
-  "student_1": {
-    "2026-01-31": {
-      "status": "not-completed",
-      "tasks": [
-        {
-          "name": "rdgr",
-          "subject": "Physics",
-          "type": "Reading",
-          "hours": "1",
-          "status": "Not Completed",
-          "notes": "",
-          "date": "2026-01-31",
-          "id": 1769810129185
-        }
-      ]
-    }
+  "user_1770281920461": {
+    "tasks": [
+      {
+        "id": 1770314795549,
+        "subject": "Physics",
+        "topic": "networn laws",
+        "time": "30",
+        "questions": "60",
+        "priority": "medium",
+        "done": true,
+        "color": "#EFF6FF",
+        "iconColor": "#3B82F6"
+      }
+    ]
   },
-  "user_1769976487110": {
-    "tasks": [],
+  "user_1770314965458": {
     "2026-02-05": {
       "status": "completed",
       "tasks": [
         {
-          "name": "network",
+          "name": "kmjjjkk",
+          "subject": "Physics",
+          "type": "Reading",
+          "hours": "1",
+          "status": "Completed",
+          "notes": " gnvnbvnhb",
+          "date": "2026-02-05",
+          "id": 1770315022260
+        },
+        {
+          "name": "b n",
           "subject": "Physics",
           "type": "Revision",
-          "hours": "1",
+          "hours": "0.5",
           "status": "Completed",
           "notes": "",
           "date": "2026-02-05",
-          "id": 1770240282773
+          "id": 1770315039574
+        }
+      ]
+    }
+  },
+  "user_1770315518565": {
+    "2026-02-05": {
+      "status": "skipped",
+      "tasks": [
+        {
+          "name": "fffff",
+          "subject": "Physics",
+          "type": "Reading",
+          "hours": "1",
+          "status": "Skipped",
+          "notes": "",
+          "date": "2026-02-05",
+          "id": 1770315595353
         }
       ]
     }

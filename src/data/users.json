@@ -58,5 +58,35 @@
     "name": "harsh22",
     "email": "harsh22@gmail.com",
     "password": "123456"
+  },
+  {
+    "id": "user_1770281920461",
+    "name": "sumit",
+    "email": "sumit@gmail.com",
+    "password": "123456"
+  },
+  {
+    "id": "user_1770314965458",
+    "name": "rahul",
+    "email": "rahul@gmail.com",
+    "password": "123456"
+  },
+  {
+    "id": "user_1770315145803",
+    "name": "aree",
+    "email": "aree@gmail.com",
+    "password": "123456"
+  },
+  {
+    "id": "user_1770315518565",
+    "name": "adi",
+    "email": "adi@gmail.com",
+    "password": "123456"
+  },
+  {
+    "id": "user_1770315647025",
+    "name": "samye",
+    "email": "samye@gmail.com",
+    "password": "123456"
   }
 ]

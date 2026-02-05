@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTimer } from "@/context/TimerContext";
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -22,6 +23,53 @@ const NAV_ITEMS = [
     { label: 'Focus Timer', href: '/timer', icon: Clock },
     { label: 'My Profile', href: '/profile', icon: User },
 ];
+
+function TimerIndicator() {
+    const { isActive, seconds, mode, selectedSubject } = useTimer();
+
+    if (!isActive) return null;
+
+    const formatTime = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    return (
+        <div className="global-timer-indicator">
+            <div className="pulse-dot"></div>
+            <div className="timer-info">
+                <span className="mode-label">{mode}</span>
+                <span className="time-val">{formatTime(seconds)}</span>
+            </div>
+            <style jsx>{`
+                .global-timer-indicator {
+                    background: #1e293b;
+                    color: white;
+                    padding: 12px 16px;
+                    border-radius: 16px;
+                    margin: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                    border: 1px solid rgba(255,255,255,0.1);
+                }
+                .pulse-dot {
+                    width: 8px;
+                    height: 8px;
+                    background: #10b981;
+                    border-radius: 50%;
+                    animation: pulse 1.5s infinite;
+                }
+                .timer-info { display: flex; flex-direction: column; }
+                .mode-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; }
+                .time-val { font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+                @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+            `}</style>
+        </div>
+    );
+}
 
 export default function AppShell({ children, rightPanel }) {
     const pathname = usePathname();
@@ -88,6 +136,8 @@ export default function AppShell({ children, rightPanel }) {
                 </nav>
 
                 <div className="sidebar-actions">
+                    <TimerIndicator />
+
                     <button onClick={handleLogout} className="nav-link logout-btn" style={{ marginTop: 'auto', marginBottom: '16px' }}>
                         <LogOut size={20} />
                         Logout

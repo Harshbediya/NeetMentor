@@ -7,6 +7,8 @@ import {
     Target, Zap, Flame, BarChart3, ChevronRight, LayoutList, Sparkles
 } from "lucide-react";
 import { NEET_CHAPTERS } from "@/lib/constants";
+import { auth } from "@/lib/firebase";
+import { saveData, loadData } from "@/lib/progress";
 
 // --- Sub Components ---
 
@@ -41,16 +43,19 @@ export default function StudyLogPage() {
 
     useEffect(() => {
         setMounted(true);
-        const savedLogs = localStorage.getItem('neet_study_logs');
-        const savedGoals = localStorage.getItem('neet_study_goals');
-        if (savedLogs) setLogs(JSON.parse(savedLogs));
-        if (savedGoals) setGoals(JSON.parse(savedGoals));
+        const syncStudyJournal = async () => {
+            const serverData = await loadData("study-journal", { logs: [], goals: [] });
+            if (serverData) {
+                if (serverData.logs) setLogs(serverData.logs);
+                if (serverData.goals) setGoals(serverData.goals);
+            }
+        };
+        syncStudyJournal();
     }, []);
 
     useEffect(() => {
         if (mounted) {
-            localStorage.setItem('neet_study_logs', JSON.stringify(logs));
-            localStorage.setItem('neet_study_goals', JSON.stringify(goals));
+            saveData("study-journal", { logs, goals });
         }
     }, [logs, goals, mounted]);
 

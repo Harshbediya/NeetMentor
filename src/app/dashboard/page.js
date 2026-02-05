@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { CheckCircle, Circle, AlertTriangle, Clock, FileQuestion, Plus, Trash2, Flame, Target, TrendingUp, BookOpen, Timer, ClipboardList, Star, Zap, Moon, Sun } from "lucide-react";
 import Link from "next/link";
+import { auth } from "@/lib/firebase";
+import { saveProgress, loadProgress, saveUserDoc, getUserDoc, loadData } from "@/lib/progress";
+import { SYLLABUS_DATA } from "@/lib/syllabus-data";
 
 
 
@@ -21,24 +24,44 @@ const MOTIVATIONAL_QUOTES = [
 export default function DashboardPage() {
     const [tasks, setTasks] = useState([]);
 
-    // Sync Tasks with Server
+    // Sync Tasks & Syllabus with Server
     useEffect(() => {
-        fetch("/api/progress")
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.data.tasks) {
-                    setTasks(data.data.tasks);
-                }
-            });
+        const sync = async () => {
+            const serverData = await loadProgress();
+            if (serverData && serverData.tasks) {
+                setTasks(serverData.tasks);
+            }
+            if (serverData && serverData.streak) {
+                setStudyStreak(serverData.streak.streak || 0);
+                setLastStreakDate(serverData.streak.lastDate);
+            }
+
+            // Fetch and calculate syllabus progress
+            const syllabusProgress = await loadData("syllabus", {});
+            if (syllabusProgress) {
+                const stats = { Physics: 0, Chemistry: 0, Biology: 0 };
+                ['Physics', 'Chemistry', 'Biology'].forEach(subject => {
+                    let total = 0;
+                    let completed = 0;
+                    SYLLABUS_DATA[subject].forEach(unit => {
+                        unit.subTopics.forEach(topic => {
+                            total++;
+                            if (syllabusProgress[`${unit.id}-${topic}`]) {
+                                completed++;
+                            }
+                        });
+                    });
+                    stats[subject] = total > 0 ? Math.round((completed / total) * 100) : 0;
+                });
+                setSyllabusStats(stats);
+            }
+        };
+        sync();
     }, []);
 
     useEffect(() => {
         if (!tasks.length) return;
-        fetch("/api/progress", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tasks }),
-        });
+        saveProgress({ tasks });
     }, [tasks]);
     const [mounted, setMounted] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -53,62 +76,37 @@ export default function DashboardPage() {
 
     useEffect(() => {
         setMounted(true);
-        fetchDashboardData();
+        // Load theme from localStorage or user doc
+        const loadTheme = async () => {
+            const user = auth.currentUser;
+            let storedTheme = "light";
+            if (user) {
+                storedTheme = localStorage.getItem(`neet-theme_${user.uid}`) || "light";
+                const themeData = await getUserDoc(["settings", "theme"]);
+                if (themeData && themeData.theme) {
+                    storedTheme = themeData.theme;
+                }
+            }
+            setTheme(storedTheme);
+            document.documentElement.setAttribute("data-theme", storedTheme);
+        };
+        loadTheme();
 
-        // Set random motivational quote
-        const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
-        setMotivationalQuote(randomQuote);
-
-        // Theme initialization
-        const savedTheme = localStorage.getItem("neet-theme") ||
-            (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        setTheme(savedTheme);
-        document.documentElement.setAttribute("data-theme", savedTheme);
+        // Set a random motivational quote
+        setMotivationalQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
     }, []);
 
     const toggleTheme = () => {
         const newTheme = theme === "light" ? "dark" : "light";
         setTheme(newTheme);
         document.documentElement.setAttribute("data-theme", newTheme);
-        localStorage.setItem("neet-theme", newTheme);
-    };
-
-    const fetchDashboardData = async () => {
-        try {
-            const res = await fetch("/api/progress");
-            const result = await res.json();
-            if (result.success && result.data) {
-                // Map progress data to dashboard state
-                if (result.data.tasks) {
-                    setTasks(result.data.tasks);
-                } else {
-                    // Fallback to initial tasks if no data on server
-                    // setTasks(INITIAL_TASKS); // Removed
-                }
-
-                if (result.data.streak) {
-                    const { streak, lastDate } = result.data.streak;
-                    const today = new Date().toLocaleDateString();
-                    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
-
-                    if (lastDate === today || lastDate === yesterday) {
-                        setStudyStreak(streak);
-                    } else {
-                        setStudyStreak(0);
-                    }
-                    setLastStreakDate(lastDate);
-                }
-
-                // Syllabus stats can still come from its own API if preferred, 
-                // or we can just mock it for now since we want "Progress" to be fixed.
-            } else {
-                // No tasks fallback
-            }
-        } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
-            // setTasks(INITIAL_TASKS); // Removed as INITIAL_TASKS is deleted
+        const user = auth.currentUser;
+        if (user) {
+            localStorage.setItem(`neet-theme_${user.uid}`, newTheme);
+            saveUserDoc(["settings", "theme"], { theme: newTheme });
         }
     };
+
 
     const saveDashboardData = async (currentTasks) => {
         if (!mounted) return;
@@ -122,7 +120,7 @@ export default function DashboardPage() {
         if (allDone && lastStreakDate !== today) {
             const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
             if (lastStreakDate === yesterday) {
-                newStreak = studyStreak + 1;
+                newStreak = (studyStreak || 0) + 1;
             } else {
                 newStreak = 1;
             }
@@ -131,18 +129,10 @@ export default function DashboardPage() {
             setLastStreakDate(newLastDate);
         }
 
-        try {
-            await fetch("/api/progress", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    tasks: currentTasks,
-                    streak: { streak: newStreak, lastDate: newLastDate || lastStreakDate }
-                })
-            });
-        } catch (error) {
-            console.error("Failed to save dashboard data", error);
-        }
+        await saveProgress({
+            tasks: currentTasks,
+            streak: { streak: newStreak, lastDate: newLastDate || lastStreakDate }
+        });
     };
 
     const toggleTask = async (id) => {
@@ -672,8 +662,7 @@ export default function DashboardPage() {
                         grid-template-columns: 1fr !important;
                         text-align: center;
                     }
-                    
-                    .dashboard-main-content h1 {
+                                       .dashboard-main-content h1 {
                         font-size: 2rem !important;
                     }
                 }

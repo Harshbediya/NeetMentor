@@ -1,98 +1,140 @@
 import { db, auth } from "./firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
-const getKey = (uid) => `neet_progress_${uid}`;
-const getPendingKey = (uid) => `neet_pending_sync_${uid}`;
-const isOnline = () => typeof navigator !== "undefined" ? navigator.onLine : true;
-const getLocal = (uid) => {
+const getLocal = (uid, key) => {
   try {
-    const v = localStorage.getItem(getKey(uid));
+    const v = localStorage.getItem(`${key}_${uid}`);
     return v ? JSON.parse(v) : null;
   } catch {
     return null;
   }
 };
-const setLocal = (uid, data) => {
+const setLocal = (uid, key, data) => {
   try {
-    localStorage.setItem(getKey(uid), JSON.stringify(data));
-  } catch {}
+    localStorage.setItem(`${key}_${uid}`, JSON.stringify(data));
+  } catch { }
 };
-const setPending = (uid, data) => {
+const setPending = (uid, key, data) => {
   try {
-    localStorage.setItem(getPendingKey(uid), JSON.stringify(data));
-  } catch {}
+    localStorage.setItem(`pending_${key}_${uid}`, JSON.stringify(data));
+  } catch { }
 };
-const getPending = (uid) => {
+const getPending = (uid, key) => {
   try {
-    const v = localStorage.getItem(getPendingKey(uid));
+    const v = localStorage.getItem(`pending_${key}_${uid}`);
     return v ? JSON.parse(v) : null;
   } catch {
     return null;
   }
 };
-const clearPending = (uid) => {
+const clearPending = (uid, key) => {
   try {
-    localStorage.removeItem(getPendingKey(uid));
-  } catch {}
+    localStorage.removeItem(`pending_${key}_${uid}`);
+  } catch { }
 };
-const flushPendingIfOnline = async () => {
-  const user = auth.currentUser;
-  if (!user) return;
-  if (!isOnline()) return;
-  const data = getPending(user.uid);
-  if (!data) return;
-  const userDocRef = doc(db, "users", user.uid, "dashboard", "progress");
-  try {
-    await setDoc(userDocRef, data, { merge: true });
-    clearPending(user.uid);
-    setLocal(user.uid, data);
-  } catch {}
-};
-if (typeof window !== "undefined" && !window.__neet_sync_setup) {
-  window.__neet_sync_setup = true;
-  window.addEventListener("online", () => {
-    flushPendingIfOnline();
-  });
-}
+
+// Original Progress functions (Refactored to use generic helpers)
+const PROGRESS_KEY = "progress";
 export const saveProgress = async (data) => {
   const user = auth.currentUser;
-  if (!user) {
-    console.warn("No authenticated user found while saving progress");
-    return;
-  }
-  setLocal(user.uid, data);
-  if (!isOnline()) {
-    setPending(user.uid, data);
-    return;
-  }
-  const userDocRef = doc(db, "users", user.uid, "dashboard", "progress");
+  if (!user) return;
+  const uid = user.uid;
+  localStorage.setItem(`progress_${uid}`, JSON.stringify(data));
+  const userDocRef = doc(db, "users", uid, "progress", "main");
   try {
-    await setDoc(userDocRef, data, { merge: true });
-  } catch {
-    setPending(user.uid, data);
+    await setDoc(userDocRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    localStorage.setItem(`pending_progress_${uid}`, JSON.stringify(data));
   }
 };
 
 export const loadProgress = async () => {
   const user = auth.currentUser;
-  if (!user) {
-    console.warn("No authenticated user found while loading progress");
-    return null;
-  }
-  const localData = getLocal(user.uid);
+  if (!user) return null;
+  const uid = user.uid;
+
+  const localData = localStorage.getItem(`progress_${uid}`);
+  const parsedLocal = localData ? JSON.parse(localData) : null;
+
   try {
-    const userDocRef = doc(db, "users", user.uid, "dashboard", "progress");
+    const userDocRef = doc(db, "users", uid, "progress", "main");
+    const docSnap = await getDoc(userDocRef);
+
+    if (docSnap.exists()) {
+      const serverData = docSnap.data();
+      localStorage.setItem(`progress_${uid}`, JSON.stringify(serverData));
+      return serverData;
+    } else {
+      // Initialization for New User
+      const defaultData = {
+        physics: 0,
+        chemistry: 0,
+        biology: 0,
+        tasks: [],
+        streak: { streak: 0, lastDate: null },
+        createdAt: serverTimestamp()
+      };
+      await setDoc(userDocRef, defaultData);
+      localStorage.setItem(`progress_${uid}`, JSON.stringify(defaultData));
+      return defaultData;
+    }
+  } catch (error) {
+    return parsedLocal;
+  }
+};
+
+// Generic isolated sync functions for main doc pattern
+export const saveData = async (feature, data) => {
+  const user = auth.currentUser;
+  if (!user) return;
+  const uid = user.uid;
+  localStorage.setItem(`${feature}_${uid}`, JSON.stringify(data));
+
+  const userDocRef = doc(db, "users", uid, feature, "main");
+  try {
+    await setDoc(userDocRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    localStorage.setItem(`pending_${feature}_${uid}`, JSON.stringify(data));
+  }
+};
+
+export const loadData = async (feature, defaultData = {}) => {
+  const user = auth.currentUser;
+  if (!user) return null;
+  const uid = user.uid;
+  const localData = localStorage.getItem(`${feature}_${uid}`);
+  const parsedLocal = localData ? JSON.parse(localData) : null;
+
+  try {
+    const userDocRef = doc(db, "users", uid, feature, "main");
     const docSnap = await getDoc(userDocRef);
     if (docSnap.exists()) {
       const serverData = docSnap.data();
-      setLocal(user.uid, serverData);
+      localStorage.setItem(`${feature}_${uid}`, JSON.stringify(serverData));
       return serverData;
+    } else {
+      // Initialize if empty
+      const initial = { ...defaultData, createdAt: serverTimestamp() };
+      await setDoc(userDocRef, initial);
+      localStorage.setItem(`${feature}_${uid}`, JSON.stringify(initial));
+      return initial;
     }
-  } catch (error) {
-    if (error.code === "unavailable" || (error.message && error.message.includes("offline"))) {
-      return localData;
-    }
-    console.error("Error loading progress:", error);
+  } catch (e) {
+    return parsedLocal;
   }
-  return localData;
+};
+
+export const saveUserDoc = async (subpath, data) => {
+  const user = auth.currentUser;
+  if (!user) return;
+  const userDocRef = doc(db, "users", user.uid, ...subpath);
+  await setDoc(userDocRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const getUserDoc = async (subpath) => {
+  const user = auth.currentUser;
+  if (!user) return null;
+  const userDocRef = doc(db, "users", user.uid, ...subpath);
+  const docSnap = await getDoc(userDocRef);
+  return docSnap.exists() ? docSnap.data() : null;
 };

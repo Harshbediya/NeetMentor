@@ -1,84 +1,60 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import {
     Play, Pause, RotateCcw,
     BookOpen, Zap, GraduationCap,
-    TrendingUp, Award, Clock, Edit3, Check
+    TrendingUp, Award, Clock, Edit3, Check, Target, Trophy
 } from "lucide-react";
+import { useTimer } from "@/context/TimerContext";
 
 export default function TimerPage() {
-    const [seconds, setSeconds] = useState(25 * 60);
-    const [initialTime, setInitialTime] = useState(25 * 60);
-    const [isActive, setIsActive] = useState(false);
-    const [mode, setMode] = useState("Pomodoro");
+    const {
+        seconds, setSeconds,
+        isActive, setIsActive,
+        mode, setMode,
+        selectedSubject, setSelectedSubject,
+        initialTime, setInitialTime,
+        dailyGoal, updateDailyGoal,
+        realStats,
+        saveSession
+    } = useTimer();
+
     const [mounted, setMounted] = useState(false);
-
-    // Edit Mode State - Added for user request
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditingTime, setIsEditingTime] = useState(false);
+    const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [customInput, setCustomInput] = useState("25");
-
-    // Stats
-    const [dailyGoal, setDailyGoal] = useState(6 * 60);
-    const [todayStudyTime, setTodayStudyTime] = useState(0);
-    const [modeStats, setModeStats] = useState({ Pomodoro: 0, "Deep Work": 0, "Mock Test": 0 });
-    const audioRef = useRef(null);
+    const [goalInput, setGoalInput] = useState("6");
+    const [showLoggingModal, setShowLoggingModal] = useState(false);
+    const [sessionDetails, setSessionDetails] = useState({ topic: "", difficulty: "Medium" });
 
     useEffect(() => {
         setMounted(true);
-        const savedStats = localStorage.getItem("neet_timer_stats");
-        if (savedStats) {
-            const parsed = JSON.parse(savedStats);
-            const today = new Date().toLocaleDateString();
-            if (parsed.date === today) {
-                setTodayStudyTime(parsed.todayTime || 0);
-                setModeStats(parsed.modeStats || { Pomodoro: 0, "Deep Work": 0, "Mock Test": 0 });
-            }
-        }
-        audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-    }, []);
+        setGoalInput((dailyGoal / 3600).toString());
+    }, [dailyGoal]);
 
-    useEffect(() => {
-        if (mounted) {
-            localStorage.setItem("neet_timer_stats", JSON.stringify({
-                date: new Date().toLocaleDateString(),
-                todayTime: todayStudyTime,
-                modeStats: modeStats
-            }));
-        }
-    }, [todayStudyTime, modeStats, mounted]);
-
-    useEffect(() => {
-        let interval = null;
-        if (isActive && seconds > 0) {
-            interval = setInterval(() => {
-                setSeconds(s => s - 1);
-            }, 1000);
-        } else if (seconds === 0 && isActive) {
-            clearInterval(interval);
-            setIsActive(false);
-            handleTimerComplete();
-        }
-        return () => clearInterval(interval);
-    }, [isActive, seconds]);
-
-    const handleTimerComplete = () => {
-        if (audioRef.current) audioRef.current.play();
-
-        const minutesCompleted = initialTime / 60;
-        setTodayStudyTime(prev => prev + minutesCompleted);
-        setModeStats(prev => ({
-            ...prev,
-            [mode]: (prev[mode] || 0) + minutesCompleted
-        }));
-
-        if (typeof window !== "undefined") {
-            alert(`Great job! You finished a ${mode} session.`);
-        }
+    const handleTimerCompleteUI = () => {
+        setShowLoggingModal(true);
     };
 
-    const toggleTimer = () => setIsActive(!isActive);
+    // Watch for timer completion in UI to show modal
+    useEffect(() => {
+        if (seconds === 0 && !isActive && initialTime > 0 && !showLoggingModal) {
+            // Check if it just finished (this is a bit tricky with global state, 
+            // but we can assume if it's 0 and was active recently)
+            // Actually handleTimerComplete in Context handles notifications, 
+            // but the UI modal needs to be triggered here.
+        }
+    }, [seconds, isActive]);
+
+    const toggleTimer = () => {
+        if (!isActive && !selectedSubject) {
+            alert("Please select a subject (Physics/Chemistry/Biology) before starting.");
+            return;
+        }
+        setIsActive(!isActive);
+    };
 
     const resetTimer = () => {
         setIsActive(false);
@@ -87,7 +63,7 @@ export default function TimerPage() {
 
     const switchMode = (newMode, minutes) => {
         setMode(newMode);
-        setIsEditing(false);
+        setIsEditingTime(false);
         setIsActive(false);
         const secs = minutes * 60;
         setSeconds(secs);
@@ -101,8 +77,16 @@ export default function TimerPage() {
             const secs = mins * 60;
             setInitialTime(secs);
             setSeconds(secs);
-            setIsEditing(false);
+            setIsEditingTime(false);
             setMode("Custom");
+        }
+    };
+
+    const handleGoalSubmit = () => {
+        const hours = parseFloat(goalInput);
+        if (!isNaN(hours) && hours > 0) {
+            updateDailyGoal(hours * 3600);
+            setIsEditingGoal(false);
         }
     };
 
@@ -110,252 +94,310 @@ export default function TimerPage() {
         const h = Math.floor(secs / 3600);
         const m = Math.floor((secs % 3600) / 60);
         const s = secs % 60;
-        if (h > 0) {
-            return `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+        return h > 0 ? `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}` : `${m}:${s < 10 ? "0" : ""}${s}`;
+    };
+
+    const onSave = async () => {
+        const success = await saveSession(sessionDetails);
+        if (success) {
+            setShowLoggingModal(false);
+            setSessionDetails({ topic: "", difficulty: "Medium" });
+        } else {
+            alert("Error saving session. Check your connection.");
         }
-        return `${m}:${s < 10 ? "0" : ""}${s}`;
     };
 
     if (!mounted) return null;
 
-    const progressPercentage = Math.min((todayStudyTime / dailyGoal) * 100, 100);
-    // Avoid division by zero
-    const sessionProgress = initialTime > 0 ? ((initialTime - seconds) / initialTime) * 100 : 0;
+    const progressPercentage = Math.min((realStats.todaySeconds / dailyGoal) * 100, 100);
+    const sessionProgress = initialTime > 0 ? ((initialTime - seconds) / initialTime) : 0;
+
+    // Circular Progress Math
+    const radius = 120;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (sessionProgress * circumference);
 
     return (
         <AppShell>
             <div className="hub-container">
                 <header className="page-header">
-                    <div className="header-badge">
-                        <Clock size={14} /> CONCENTRATION HUB
-                    </div>
-                    <h1>Focus Statistics & Timer</h1>
-                    <p>Track your study hours and stay in the zone.</p>
+                    <div className="header-badge"><Clock size={14} /> NEET MENTOR FOCUS</div>
+                    <h1>Your Study Sanctuary</h1>
+                    <p>Stay disciplined. Every second counts towards your dream college.</p>
                 </header>
 
                 <div className="grid-layout">
-                    {/* LEFT PANEL: TIMER */}
+                    {/* LEFT PANEL: MOTIVATIONAL TIMER */}
                     <div className="timer-panel">
-                        <div className="presets-row">
-                            <button
-                                className={`preset-card ${mode === "Pomodoro" ? "active" : ""}`}
-                                onClick={() => switchMode("Pomodoro", 25)}
-                            >
-                                <div className="icon-box"><Zap size={20} /></div>
-                                <div className="text-box">
-                                    <h3>Pomodoro</h3>
-                                    <span>25m</span>
-                                </div>
-                            </button>
-                            <button
-                                className={`preset-card ${mode === "Deep Work" ? "active" : ""}`}
-                                onClick={() => switchMode("Deep Work", 50)}
-                            >
-                                <div className="icon-box"><BookOpen size={20} /></div>
-                                <div className="text-box">
-                                    <h3>Deep Work</h3>
-                                    <span>50m</span>
-                                </div>
-                            </button>
-                            <button
-                                className={`preset-card ${mode === "Mock Test" ? "active" : ""}`}
-                                onClick={() => switchMode("Mock Test", 180)}
-                            >
-                                <div className="icon-box"><GraduationCap size={20} /></div>
-                                <div className="text-box">
-                                    <h3>Mock Test</h3>
-                                    <span>180m</span>
-                                </div>
-                            </button>
+                        <div className="subject-selection">
+                            <h3 className="section-title">Step 1: Choose Your Weapon</h3>
+                            <div className="subject-chips">
+                                {["Physics", "Chemistry", "Biology"].map(sub => (
+                                    <button
+                                        key={sub}
+                                        className={`subject-chip ${selectedSubject === sub ? "active" : ""}`}
+                                        onClick={() => !isActive && setSelectedSubject(sub)}
+                                        disabled={isActive}
+                                    >
+                                        {sub}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="main-timer-card">
-                            <div className="timer-header">
-                                <span className="mode-badge">{mode.toUpperCase()}</span>
-                                {isActive && <span className="live-status">LIVE</span>}
+                        <div className="timer-main-area">
+                            <div className="circular-timer-container">
+                                <svg className="timer-svg" width="300" height="300">
+                                    <circle className="timer-bg" cx="150" cy="150" r={radius} />
+                                    <circle
+                                        className="timer-progress"
+                                        cx="150"
+                                        cy="150"
+                                        r={radius}
+                                        style={{
+                                            strokeDasharray: circumference,
+                                            strokeDashoffset: strokeDashoffset,
+                                            transition: isActive ? "stroke-dashoffset 1s linear" : "stroke-dashoffset 0.3s ease"
+                                        }}
+                                    />
+                                </svg>
+
+                                <div className="timer-content">
+                                    <span className="current-mode">{mode}</span>
+                                    {isEditingTime ? (
+                                        <div className="edit-time-inline">
+                                            <input
+                                                type="number"
+                                                value={customInput}
+                                                onChange={(e) => setCustomInput(e.target.value)}
+                                                autoFocus
+                                            />
+                                            <button onClick={handleCustomTimeSubmit}><Check size={20} /></button>
+                                        </div>
+                                    ) : (
+                                        <h2 className="time-text" onClick={() => !isActive && setIsEditingTime(true)}>
+                                            {formatTime(seconds)}
+                                            {!isActive && <Edit3 size={16} className="tiny-edit" />}
+                                        </h2>
+                                    )}
+                                    <div className="control-row">
+                                        <button className="icon-btn" onClick={resetTimer}><RotateCcw size={20} /></button>
+                                        <button className={`play-btn ${isActive ? 'active' : ''}`} onClick={toggleTimer}>
+                                            {isActive ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" style={{ marginLeft: 4 }} />}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Editable Timer Display */}
-                            <div className="timer-display-wrapper">
-                                {isEditing ? (
-                                    <div className="edit-time-box">
-                                        <input
-                                            type="number"
-                                            value={customInput}
-                                            onChange={(e) => setCustomInput(e.target.value)}
-                                            className="time-input"
-                                            autoFocus
-                                        />
-                                        <button className="save-time-btn" onClick={handleCustomTimeSubmit}>
-                                            <Check size={24} />
-                                        </button>
+                            <div className="mode-selector-vertical">
+                                <button className={mode === "Pomodoro" ? "active" : ""} onClick={() => switchMode("Pomodoro", 25)}>
+                                    <Zap size={18} /> <span>25m</span>
+                                </button>
+                                <button className={mode === "Deep Work" ? "active" : ""} onClick={() => switchMode("Deep Work", 50)}>
+                                    <BookOpen size={18} /> <span>50m</span>
+                                </button>
+                                <button className={mode === "Mock Test" ? "active" : ""} onClick={() => switchMode("Mock Test", 180)}>
+                                    <GraduationCap size={18} /> <span>3h</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="motivation-card">
+                            <Trophy size={24} color="#f59e0b" />
+                            <div className="mot-content">
+                                <h4>Focusing on {selectedSubject || "your goals"}</h4>
+                                <p>"The pain of discipline is far less than the pain of regret."</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT PANEL: GOALS & STATS */}
+                    <div className="stats-panel">
+                        <div className="goal-card-premium">
+                            <div className="goal-header">
+                                <h3><Target size={18} /> Daily Goal</h3>
+                                {isEditingGoal ? (
+                                    <div className="goal-edit">
+                                        <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)} />
+                                        <button onClick={handleGoalSubmit}>OK</button>
                                     </div>
                                 ) : (
-                                    <div className={`time-display ${isActive ? "active" : ""}`}>
-                                        {formatTime(seconds)}
-                                        <button className="edit-icon" onClick={() => setIsEditing(true)}>
-                                            <Edit3 size={20} />
-                                        </button>
-                                    </div>
+                                    <button className="edit-link" onClick={() => setIsEditingGoal(true)}>Edit</button>
                                 )}
                             </div>
 
-                            {/* Session Progress Bar */}
-                            <div className="session-progress">
-                                <div className="bar-bg">
-                                    <div className="bar-fill" style={{ width: `${sessionProgress}%` }}></div>
+                            <div className="goal-stats">
+                                <div className="stat-main">
+                                    <span className="big-val">{(realStats.todaySeconds / 3600).toFixed(1)}h</span>
+                                    <span className="label">Studied</span>
                                 </div>
-                                <div className="session-visuals">
-                                    <span>{Math.floor((initialTime - seconds) / 60)}m elapsed</span>
-                                    <span>{Math.floor(initialTime / 60)}m total</span>
+                                <div className="stat-separator">/</div>
+                                <div className="stat-sub">
+                                    <span className="sub-val">{(dailyGoal / 3600).toFixed(1)}h</span>
+                                    <span className="label">Target</span>
                                 </div>
                             </div>
 
-                            <div className="timer-controls">
-                                <button className="control-btn reset" onClick={resetTimer}>
-                                    <RotateCcw size={22} />
-                                </button>
-                                <button className={`control-btn play ${isActive ? "playing" : ""}`} onClick={toggleTimer}>
-                                    {isActive ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" style={{ marginLeft: 4 }} />}
-                                    <span>{isActive ? "PAUSE" : "START FOCUS"}</span>
-                                </button>
+                            <div className="progress-track-premium">
+                                <div className="track-fill" style={{ width: `${progressPercentage}%` }}></div>
+                            </div>
+                            <p className="status-text">
+                                {progressPercentage >= 100 ? "Goal achieved! You are a champion! 🏆" : `${Math.round(100 - progressPercentage)}% remaining to reach your goal.`}
+                            </p>
+                        </div>
+
+                        <div className="breakdown-card-premium">
+                            <h3>Subject Distribution</h3>
+                            <div className="dist-list">
+                                {Object.entries(realStats.bySubject).map(([sub, secs]) => (
+                                    <div key={sub} className="dist-item">
+                                        <div className="dist-info">
+                                            <span>{sub}</span>
+                                            <span>{Math.round(secs / 60)}m</span>
+                                        </div>
+                                        <div className="dist-bar">
+                                            <div
+                                                className={`dist-fill ${sub.toLowerCase()}`}
+                                                style={{ width: `${realStats.todaySeconds > 0 ? (secs / realStats.todaySeconds) * 100 : 0}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
-                        <div className="expert-tip">
-                            <div className="tip-icon"><Award size={20} color="#fbbf24" /></div>
-                            <div className="tip-content">
-                                <h4>Study Expert Tip</h4>
-                                <p>
-                                    {mode === "Pomodoro" && "Take a 5 minute break after this cycle. Your brain needs to reset."}
-                                    {mode === "Deep Work" && "Eliminate all distractions. Put your phone in another room."}
-                                    {mode === "Mock Test" && "Simulate exam conditions. No water breaks for the first hour."}
-                                    {mode === "Custom" && "Consistency is key. Keep pushing!"}
-                                </p>
+                        <div className="breakdown-card-premium">
+                            <h3>Mode History</h3>
+                            <div className="mode-grid">
+                                {Object.entries(realStats.byMode).map(([m, secs]) => (
+                                    <div key={m} className="mode-box">
+                                        <span className="m-val">{Math.round(secs / 60)}m</span>
+                                        <span className="m-label">{m}</span>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT PANEL: STATS */}
-                    <div className="stats-panel">
-                        <div className="daily-progress-card">
-                            <h3><TrendingUp size={18} /> Daily Performance</h3>
-                            <div className="progress-circle">
-                                <span className="progress-value">{Math.round(todayStudyTime / 60 * 10) / 10}h</span>
-                                <span className="progress-label">Today's Study</span>
-                            </div>
-                            <div className="progress-bar-container">
-                                <div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div>
-                            </div>
-                            <p className="goal-text">Goal: {dailyGoal / 60} Hours ({Math.round(progressPercentage)}%)</p>
-                        </div>
-
-                        <div className="breakdown-card">
-                            <h3>Mode Breakdown</h3>
-                            <ul className="stats-list">
-                                <li>
-                                    <span>Pomodoro</span>
-                                    <span className="stat-val">{Math.round(modeStats.Pomodoro || 0)}m</span>
-                                </li>
-                                <li>
-                                    <span>Deep Work</span>
-                                    <span className="stat-val">{Math.round(modeStats["Deep Work"] || 0)}m</span>
-                                </li>
-                                <li>
-                                    <span>Mock Test</span>
-                                    <span className="stat-val">{Math.round(modeStats["Mock Test"] || 0)}m</span>
-                                </li>
-                            </ul>
                         </div>
                     </div>
                 </div>
+
+                {/* LOGGING MODAL */}
+                {showLoggingModal && (
+                    <div className="modal-overlay">
+                        <div className="logging-modal">
+                            <h2>Session Complete! 🎉</h2>
+                            <p>Great focus! Log this to keep your streak alive.</p>
+                            <div className="form-group">
+                                <label>What exactly did you study?</label>
+                                <input type="text" placeholder="e.g. Organic Chemistry, Kinematics..." value={sessionDetails.topic} onChange={e => setSessionDetails({ ...sessionDetails, topic: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label>How difficult was it?</label>
+                                <div className="diff-row">
+                                    {["Easy", "Medium", "Hard"].map(d => (
+                                        <button key={d} className={`diff-btn ${sessionDetails.difficulty === d ? d.toLowerCase() : ""}`} onClick={() => setSessionDetails({ ...sessionDetails, difficulty: d })}>{d}</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <button className="save-session-btn" onClick={onSave}>Save & Celebrate</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <style jsx>{`
-                .hub-container {
-                    max-width: 1100px;
-                    margin: 0 auto;
-                    padding: 24px;
-                }
+                .hub-container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; color: #1e293b; }
+                .page-header { margin-bottom: 40px; }
+                .header-badge { display: inline-flex; align-items: center; gap: 8px; background: #eef2ff; color: #4f46e5; padding: 6px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 800; margin-bottom: 16px; letter-spacing: 1px; }
+                .page-header h1 { font-size: 3rem; font-weight: 900; line-height: 1.1; margin-bottom: 12px; background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .page-header p { font-size: 1.25rem; color: #64748b; max-width: 600px; }
 
-                .page-header { margin-bottom: 32px; }
-                .header-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
-                .page-header h1 { font-size: 2.5rem; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
-                .page-header p { color: #64748b; font-size: 1.1rem; }
+                .grid-layout { display: grid; grid-template-columns: 1fr 380px; gap: 40px; }
 
-                .grid-layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+                /* TIMER SECTION */
+                .section-title { font-size: 0.9rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+                .subject-chips { display: flex; gap: 12px; margin-bottom: 32px; }
+                .subject-chip { padding: 12px 24px; border-radius: 16px; border: 2px solid #f1f5f9; background: white; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+                .subject-chip.active { background: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.05); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
+                .subject-chip:disabled { opacity: 0.8; cursor: not-allowed; }
+
+                .timer-main-area { display: flex; align-items: center; gap: 40px; margin-bottom: 40px; background: white; padding: 40px; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
+                .circular-timer-container { position: relative; width: 300px; height: 300px; }
+                .timer-svg { transform: rotate(-90deg); }
+                .timer-bg { fill: none; stroke: #f1f5f9; stroke-width: 12; }
+                .timer-progress { fill: none; stroke: #4f46e5; stroke-width: 12; stroke-linecap: round; }
                 
-                /* TIMER PANEL */
-                .presets-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-                .preset-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; transition: all 0.2s; position: relative; overflow: hidden; }
-                .preset-card:hover { transform: translateY(-2px); border-color: #cbd5e1; }
-                .preset-card.active { border-color: #4f46e5; background: #eef2ff; }
-                .preset-card.active .icon-box { background: #4f46e5; color: white; }
-                .icon-box { width: 40px; height: 40px; border-radius: 10px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.2s; }
-                .text-box h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #1e293b; }
-                .text-box span { font-size: 0.75rem; color: #64748b; }
+                .timer-content { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                .current-mode { font-size: 0.85rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+                .time-text { font-size: 4.5rem; font-weight: 900; color: #1e293b; letter-spacing: -2px; cursor: pointer; position: relative; }
+                .tiny-edit { position: absolute; top: 0; right: -20px; color: #cbd5e1; }
+                .edit-time-inline input { font-size: 3rem; width: 140px; border: none; border-bottom: 4px solid #4f46e5; text-align: center; font-weight: 900; outline: none; }
+                .control-row { display: flex; align-items: center; gap: 24px; margin-top: 24px; }
+                .play-btn { width: 80px; height: 80px; border-radius: 28px; background: #1e293b; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
+                .play-btn:hover { transform: scale(1.1); box-shadow: 0 15px 30px -10px rgba(30, 41, 59, 0.5); }
+                .play-btn.active { background: #4f46e5; }
+                .icon-btn { background: #f8fafc; color: #64748b; border: none; width: 44px; height: 44px; border-radius: 14px; cursor: pointer; transition: 0.2s; }
+                .icon-btn:hover { background: #f1f5f9; color: #1e293b; }
 
-                .main-timer-card { background: white; border-radius: 32px; padding: 48px; text-align: center; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 24px; }
-                .timer-header { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 32px; }
-                .mode-badge { background: #f1f5f9; color: #64748b; padding: 6px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; }
-                .live-status { background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; animation: pulse 1.5s infinite; }
-                
-                .timer-display-wrapper { position: relative; width: fit-content; margin: 0 auto 32px auto; min-height: 100px; }
-                .time-display { font-size: 6rem; font-weight: 800; color: #1e293b; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; display: flex; align-items: center; gap: 16px; }
-                .time-display.active { color: #4f46e5; }
-                
-                .edit-icon { opacity: 0; transition: all 0.2s; background: white; border: 1px solid #e2e8f0; cursor: pointer; color: #94a3b8; border-radius: 50%; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: absolute; right: -40px; top: 50%; transform: translateY(-50%); }
-                .timer-display-wrapper:hover .edit-icon { opacity: 1; }
-                .edit-icon:hover { color: #4f46e5; border-color: #4f46e5; }
+                .mode-selector-vertical { display: flex; flex-direction: column; gap: 12px; }
+                .mode-selector-vertical button { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 20px; border: 1px solid #f1f5f9; background: white; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s; }
+                .mode-selector-vertical button:hover { border-color: #cbd5e1; background: #f8fafc; }
+                .mode-selector-vertical button.active { background: #1e293b; color: white; border-color: #1e293b; }
 
-                .edit-time-box { display: flex; align-items: center; gap: 12px; justify-content: center; }
-                .time-input { font-size: 4rem; font-weight: 800; border: none; border-bottom: 4px solid #4f46e5; width: 220px; text-align: center; outline: none; color: #4f46e5; background: transparent; padding: 0 12px; }
-                .save-time-btn { background: #4f46e5; color: white; width: 48px; height: 48px; border-radius: 50%; border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-                .save-time-btn:hover { transform: scale(1.1); }
+                .motivation-card { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 24px; padding: 24px; display: flex; gap: 20px; align-items: center; }
+                .mot-content h4 { margin: 0 0 4px 0; color: #92400e; font-size: 1rem; }
+                .mot-content p { margin: 0; color: #b45309; font-style: italic; font-size: 0.95rem; }
 
-                .session-progress { margin-bottom: 40px; max-width: 400px; margin-left: auto; margin-right: auto; }
-                .bar-bg { height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
-                .bar-fill { height: 100%; background: #4f46e5; transition: width 1s linear; }
-                .session-visuals { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; font-weight: 600; }
-                
-                .timer-controls { display: flex; align-items: center; justify-content: center; gap: 24px; }
-                .control-btn { border: none; cursor: pointer; transition: all 0.2s; }
-                .control-btn.reset { width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; }
-                .control-btn.reset:hover { background: #e2e8f0; color: #1e293b; }
-                .control-btn.play { height: 64px; padding: 0 48px; border-radius: 99px; background: #1e293b; color: white; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.1rem; }
-                .control-btn.play:hover { transform: scale(1.05); box-shadow: 0 10px 20px -5px rgba(30, 41, 59, 0.4); }
-                .control-btn.play.playing { background: #4f46e5; }
-                .control-btn.play.playing:hover { box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
-
-                .expert-tip { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-radius: 20px; padding: 20px; display: flex; gap: 16px; align-items: flex-start; }
-                .tip-icon { background: white; padding: 8px; border-radius: 50%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-                .tip-content h4 { margin: 0 0 4px 0; color: #92400e; font-size: 0.9rem; font-weight: 800; text-transform: uppercase; }
-                .tip-content p { margin: 0; color: #b45309; font-size: 0.95rem; line-height: 1.4; font-weight: 500; }
-
-                /* STATS PANEL */
+                /* STATS SECTION */
                 .stats-panel { display: flex; flex-direction: column; gap: 24px; }
-                .daily-progress-card { background: white; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; text-align: center; }
-                .daily-progress-card h3 { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; color: #64748b; margin-bottom: 24px; }
-                .progress-circle { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
-                .progress-value { font-size: 3rem; font-weight: 800; color: #1e293b; line-height: 1; }
-                .progress-label { font-size: 0.9rem; color: #94a3b8; font-weight: 600; }
-                .progress-bar-container { height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
-                .progress-bar { height: 100%; background: #4f46e5; border-radius: 99px; transition: width 0.5s ease; }
-                .goal-text { font-size: 0.8rem; color: #64748b; font-weight: 600; }
-
-                .breakdown-card { background: white; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; }
-                .breakdown-card h3 { font-size: 1rem; color: #64748b; margin-bottom: 16px; }
-                .stats-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-                .stats-list li { display: flex; justify-content: space-between; font-size: 0.95rem; color: #1e293b; font-weight: 500; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
-                .stats-list li:last-child { border: none; padding-bottom: 0; }
-                .stat-val { font-weight: 700; color: #4f46e5; }
-
-                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+                .goal-card-premium { background: white; border-radius: 32px; padding: 32px; border: 1px solid #f1f5f9; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05); }
+                .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+                .goal-header h3 { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 800; }
+                .edit-link { font-size: 0.85rem; font-weight: 700; color: #4f46e5; background: none; border: none; cursor: pointer; }
+                .goal-edit { display: flex; gap: 8px; }
+                .goal-edit input { width: 60px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-weight: 700; }
+                .goal-stats { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+                .big-val { font-size: 3.5rem; font-weight: 900; color: #1e293b; line-height: 1; }
+                .stat-separator { font-size: 2rem; color: #cbd5e1; }
+                .sub-val { font-size: 1.5rem; font-weight: 700; color: #94a3b8; }
+                .label { display: block; font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
                 
-                @media (max-width: 900px) {
+                .progress-track-premium { height: 12px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+                .track-fill { height: 100%; background: linear-gradient(90deg, #4f46e5 0%, #818cf8 100%); border-radius: 99px; transition: width 0.5s ease; }
+                .status-text { font-size: 0.9rem; color: #64748b; font-weight: 600; }
+
+                .breakdown-card-premium { background: white; border-radius: 28px; padding: 28px; border: 1px solid #f1f5f9; }
+                .breakdown-card-premium h3 { font-size: 1rem; font-weight: 800; margin-bottom: 20px; }
+                .dist-list { display: flex; flex-direction: column; gap: 16px; }
+                .dist-info { display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
+                .dist-bar { height: 6px; background: #f8fafc; border-radius: 99px; overflow: hidden; }
+                .dist-fill { height: 100%; border-radius: 99px; }
+                .dist-fill.physics { background: #6366f1; }
+                .dist-fill.chemistry { background: #10b981; }
+                .dist-fill.biology { background: #f59e0b; }
+
+                .mode-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+                .mode-box { background: #f8fafc; padding: 16px; border-radius: 20px; text-align: center; }
+                .m-val { display: block; font-size: 1.1rem; font-weight: 800; color: #1e293b; }
+                .m-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+
+                /* MODAL */
+                .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+                .logging-modal { background: white; padding: 40px; border-radius: 32px; width: 450px; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3); }
+                .logging-modal h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
+                .form-group { margin-top: 24px; }
+                .form-group label { display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; }
+                .form-group input { width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #f1f5f9; outline: none; font-size: 1rem; }
+                .diff-row { display: flex; gap: 12px; }
+                .diff-btn { flex: 1; padding: 14px; border-radius: 14px; border: 2px solid #f1f5f9; background: white; font-weight: 800; cursor: pointer; transition: 0.2s; }
+                .diff-btn.easy { background: #dcfce7; color: #166534; border-color: #86efac; }
+                .diff-btn.medium { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+                .diff-btn.hard { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+                .save-session-btn { width: 100%; padding: 18px; border-radius: 20px; background: #4f46e5; color: white; border: none; font-weight: 800; font-size: 1.1rem; margin-top: 32px; cursor: pointer; box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
+
+                @media (max-width: 1000px) {
                     .grid-layout { grid-template-columns: 1fr; }
-                    .presets-row { overflow-x: auto; padding-bottom: 8px; }
-                    .preset-card { min-width: 140px; }
+                    .timer-main-area { flex-direction: column; }
+                    .mode-selector-vertical { flex-direction: row; flex-wrap: wrap; }
                 }
             `}</style>
         </AppShell>

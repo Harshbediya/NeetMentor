@@ -7,6 +7,8 @@ import {
     BookOpen, Edit2, Pin, RotateCcw,
     Download, FileText, Layout, X
 } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { saveData, loadData } from "@/lib/progress";
 
 export default function NotesPage() {
     const [notes, setNotes] = useState([]);
@@ -25,37 +27,18 @@ export default function NotesPage() {
 
     useEffect(() => {
         setMounted(true);
-        const savedNotes = localStorage.getItem("neet_notes");
-        if (savedNotes) {
-            try {
-                const parsed = JSON.parse(savedNotes);
-                // Sanitize duplicate IDs
-                const uniqueNotes = [];
-                const seenIds = new Set();
-                parsed.forEach((n, index) => {
-                    let noteId = n.id;
-                    if (!noteId || seenIds.has(noteId)) {
-                        noteId = Date.now() + Math.random() + index;
-                    }
-                    seenIds.add(noteId);
-                    uniqueNotes.push({
-                        ...n,
-                        id: noteId,
-                        subject: n.subject || "General",
-                        date: n.date || new Date().toLocaleDateString('en-GB')
-                    });
-                });
-                setNotes(uniqueNotes);
-            } catch (e) {
-                console.error("Data corrupted, resetting", e);
-                setNotes([]);
+        const syncNotes = async () => {
+            const serverNotes = await loadData("notes", { notes: [] });
+            if (serverNotes && serverNotes.notes) {
+                setNotes(serverNotes.notes);
             }
-        }
+        };
+        syncNotes();
     }, []);
 
     useEffect(() => {
         if (mounted) {
-            localStorage.setItem("neet_notes", JSON.stringify(notes));
+            saveData("notes", { notes });
         }
     }, [notes, mounted]);
 

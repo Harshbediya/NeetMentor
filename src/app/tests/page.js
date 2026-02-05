@@ -9,6 +9,8 @@ import {
     BarChart3, Sparkles, LayoutGrid, Timer, X
 } from "lucide-react";
 import { NEET_CHAPTERS } from "@/lib/constants";
+import { auth } from "@/lib/firebase";
+import { saveData, loadData } from "@/lib/progress";
 
 // --- Premium Sub-Components ---
 
@@ -74,19 +76,19 @@ export default function MockTestsPage() {
 
     useEffect(() => {
         setMounted(true);
-        const savedTests = localStorage.getItem('neet_tests_v6_hybrid');
-        const savedLogs = localStorage.getItem('neet_study_logs');
-        if (savedTests) {
-            setTests(JSON.parse(savedTests));
-        } else {
-            const old = localStorage.getItem('neet_tests_v4_simple');
-            if (old) setTests(JSON.parse(old));
-        }
-        if (savedLogs) setStudyLogs(JSON.parse(savedLogs));
+        const syncTests = async () => {
+            const serverData = await loadData("tests", { tests: [] });
+            if (serverData && serverData.tests) {
+                setTests(serverData.tests);
+            }
+        };
+        syncTests();
     }, []);
 
     useEffect(() => {
-        if (mounted) localStorage.setItem('neet_tests_v6_hybrid', JSON.stringify(tests));
+        if (mounted) {
+            saveData("tests", { tests });
+        }
     }, [tests, mounted]);
 
     const addMistake = () => {
