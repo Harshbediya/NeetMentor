@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import {
-    Play, Pause, RotateCcw,
-    BookOpen, Zap, GraduationCap,
-    TrendingUp, Award, Clock, Edit3, Check, Target, Trophy
+    Play, Pause, RotateCcw, Edit3, Check, Target
 } from "lucide-react";
 import { useTimer } from "@/context/TimerContext";
 
@@ -38,13 +36,9 @@ export default function TimerPage() {
         setShowLoggingModal(true);
     };
 
-    // Watch for timer completion in UI to show modal
     useEffect(() => {
         if (seconds === 0 && !isActive && initialTime > 0 && !showLoggingModal) {
-            // Check if it just finished (this is a bit tricky with global state, 
-            // but we can assume if it's 0 and was active recently)
-            // Actually handleTimerComplete in Context handles notifications, 
-            // but the UI modal needs to be triggered here.
+            // Timer completion logic handled in context
         }
     }, [seconds, isActive]);
 
@@ -91,10 +85,9 @@ export default function TimerPage() {
     };
 
     const formatTime = (secs) => {
-        const h = Math.floor(secs / 3600);
-        const m = Math.floor((secs % 3600) / 60);
+        const m = Math.floor(secs / 60);
         const s = secs % 60;
-        return h > 0 ? `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}` : `${m}:${s < 10 ? "0" : ""}${s}`;
+        return `${m}:${s < 10 ? "0" : ""}${s}`;
     };
 
     const onSave = async () => {
@@ -109,172 +102,333 @@ export default function TimerPage() {
 
     if (!mounted) return null;
 
-    const progressPercentage = Math.min((realStats.todaySeconds / dailyGoal) * 100, 100);
-    const sessionProgress = initialTime > 0 ? ((initialTime - seconds) / initialTime) : 0;
-
-    // Circular Progress Math
-    const radius = 120;
+    // SVG Circular Progress Calculations
+    const radius = 110;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (sessionProgress * circumference);
+    const progress = initialTime > 0 ? (seconds / initialTime) : 1;
+    const strokeDashoffset = circumference * (1 - progress);
+
+    const progressPercentage = Math.min((realStats.todaySeconds / dailyGoal) * 100, 100);
+    const remainingMinutes = Math.max(0, Math.ceil((dailyGoal - realStats.todaySeconds) / 60));
 
     return (
         <AppShell>
-            <div className="hub-container">
-                <header className="page-header">
-                    <div className="header-badge"><Clock size={14} /> NEET MENTOR FOCUS</div>
-                    <h1>Your Study Sanctuary</h1>
-                    <p>Stay disciplined. Every second counts towards your dream college.</p>
-                </header>
-
-                <div className="grid-layout">
-                    {/* LEFT PANEL: MOTIVATIONAL TIMER */}
-                    <div className="timer-panel">
-                        <div className="subject-selection">
-                            <h3 className="section-title">Step 1: Choose Your Weapon</h3>
-                            <div className="subject-chips">
-                                {["Physics", "Chemistry", "Biology"].map(sub => (
-                                    <button
-                                        key={sub}
-                                        className={`subject-chip ${selectedSubject === sub ? "active" : ""}`}
-                                        onClick={() => !isActive && setSelectedSubject(sub)}
-                                        disabled={isActive}
-                                    >
-                                        {sub}
-                                    </button>
-                                ))}
-                            </div>
+            <div className="min-h-screen bg-gray-50 py-8 px-4">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                            <span>⏱</span> NEET MENTOR FOCUS
                         </div>
+                        <h1 className="text-5xl font-black text-gray-900 mb-3">Your Study Sanctuary</h1>
+                        <p className="text-xl text-gray-600">Stay disciplined. Every second counts towards your dream college.</p>
+                    </div>
 
-                        <div className="timer-main-area">
-                            <div className="circular-timer-container">
-                                <svg className="timer-svg" width="300" height="300">
-                                    <circle className="timer-bg" cx="150" cy="150" r={radius} />
-                                    <circle
-                                        className="timer-progress"
-                                        cx="150"
-                                        cy="150"
-                                        r={radius}
-                                        style={{
-                                            strokeDasharray: circumference,
-                                            strokeDashoffset: strokeDashoffset,
-                                            transition: isActive ? "stroke-dashoffset 1s linear" : "stroke-dashoffset 0.3s ease"
-                                        }}
-                                    />
-                                </svg>
+                    {/* Two Column Layout */}
+                    <div className="grid lg:grid-cols-[1fr_400px] gap-6">
+                        {/* LEFT SECTION */}
+                        <div className="space-y-6">
+                            {/* Subject Selection */}
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+                                    STEP 1: CHOOSE YOUR WEAPON
+                                </h3>
+                                <div className="flex gap-3">
+                                    {["Physics", "Chemistry", "Biology"].map(sub => (
+                                        <button
+                                            key={sub}
+                                            className={`flex-1 py-3 px-6 rounded-2xl font-bold transition-all ${selectedSubject === sub
+                                                    ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200 scale-105"
+                                                    : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+                                                } ${isActive ? "opacity-60 cursor-not-allowed" : ""}`}
+                                            onClick={() => !isActive && setSelectedSubject(sub)}
+                                            disabled={isActive}
+                                        >
+                                            {sub}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                                <div className="timer-content">
-                                    <span className="current-mode">{mode}</span>
-                                    {isEditingTime ? (
-                                        <div className="edit-time-inline">
-                                            <input
-                                                type="number"
-                                                value={customInput}
-                                                onChange={(e) => setCustomInput(e.target.value)}
-                                                autoFocus
+                            {/* Main Timer Area - Horizontal Layout */}
+                            <div className="bg-white rounded-3xl shadow-lg p-8 border border-gray-100">
+                                <div className="flex items-center justify-between gap-12">
+                                    {/* SVG Circular Timer */}
+                                    <div className="relative flex-shrink-0">
+                                        <svg width="300" height="300" className="transform -rotate-90">
+                                            {/* Background Ring */}
+                                            <circle
+                                                cx="150"
+                                                cy="150"
+                                                r={radius}
+                                                fill="none"
+                                                stroke="#e5e7eb"
+                                                strokeWidth="14"
                                             />
-                                            <button onClick={handleCustomTimeSubmit}><Check size={20} /></button>
+                                            {/* Progress Ring */}
+                                            <circle
+                                                cx="150"
+                                                cy="150"
+                                                r={radius}
+                                                fill="none"
+                                                stroke="url(#blueGradient)"
+                                                strokeWidth="14"
+                                                strokeLinecap="round"
+                                                strokeDasharray={circumference}
+                                                strokeDashoffset={strokeDashoffset}
+                                                style={{
+                                                    transition: isActive
+                                                        ? "stroke-dashoffset 1s linear"
+                                                        : "stroke-dashoffset 0.3s ease"
+                                                }}
+                                            />
+                                            {/* Gradient Definition */}
+                                            <defs>
+                                                <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                    <stop offset="0%" stopColor="#6366f1" />
+                                                    <stop offset="100%" stopColor="#8b5cf6" />
+                                                </linearGradient>
+                                            </defs>
+                                        </svg>
+
+                                        {/* Center Content */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">
+                                                {mode}
+                                            </div>
+
+                                            {isEditingTime ? (
+                                                <div className="flex items-center gap-2 mb-6">
+                                                    <input
+                                                        type="number"
+                                                        value={customInput}
+                                                        onChange={(e) => setCustomInput(e.target.value)}
+                                                        className="w-32 text-5xl font-black text-center border-b-4 border-indigo-600 outline-none"
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        onClick={handleCustomTimeSubmit}
+                                                        className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
+                                                    >
+                                                        <Check size={20} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="text-7xl font-black text-gray-900 mb-6 cursor-pointer group relative leading-none"
+                                                    onClick={() => !isActive && setIsEditingTime(true)}
+                                                >
+                                                    {formatTime(seconds)}
+                                                    {!isActive && (
+                                                        <Edit3
+                                                            size={18}
+                                                            className="absolute -right-7 top-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Play/Pause Button */}
+                                            <button
+                                                onClick={toggleTimer}
+                                                className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all shadow-2xl ${isActive
+                                                        ? "bg-indigo-600 hover:bg-indigo-700 scale-105"
+                                                        : "bg-gray-900 hover:bg-gray-800"
+                                                    }`}
+                                            >
+                                                {isActive ? (
+                                                    <Pause size={32} className="text-white" fill="white" />
+                                                ) : (
+                                                    <Play size={32} className="text-white ml-1" fill="white" />
+                                                )}
+                                            </button>
+
+                                            {/* Reset Button Below Play */}
+                                            <button
+                                                onClick={resetTimer}
+                                                className="mt-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                title="Reset"
+                                            >
+                                                <RotateCcw size={18} />
+                                            </button>
                                         </div>
-                                    ) : (
-                                        <h2 className="time-text" onClick={() => !isActive && setIsEditingTime(true)}>
-                                            {formatTime(seconds)}
-                                            {!isActive && <Edit3 size={16} className="tiny-edit" />}
-                                        </h2>
-                                    )}
-                                    <div className="control-row">
-                                        <button className="icon-btn" onClick={resetTimer}><RotateCcw size={20} /></button>
-                                        <button className={`play-btn ${isActive ? 'active' : ''}`} onClick={toggleTimer}>
-                                            {isActive ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" style={{ marginLeft: 4 }} />}
+                                    </div>
+
+                                    {/* Preset Buttons on Right */}
+                                    <div className="flex flex-col gap-4 flex-1">
+                                        <button
+                                            className={`flex items-center gap-4 py-4 px-6 rounded-2xl font-bold transition-all text-left ${mode === "Pomodoro"
+                                                    ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200"
+                                                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                                }`}
+                                            onClick={() => switchMode("Pomodoro", 25)}
+                                        >
+                                            <span className="text-2xl">⚡</span>
+                                            <span className="text-lg">25m</span>
+                                        </button>
+                                        <button
+                                            className={`flex items-center gap-4 py-4 px-6 rounded-2xl font-bold transition-all text-left ${mode === "Deep Work"
+                                                    ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200"
+                                                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                                }`}
+                                            onClick={() => switchMode("Deep Work", 50)}
+                                        >
+                                            <span className="text-2xl">📖</span>
+                                            <span className="text-lg">50m</span>
+                                        </button>
+                                        <button
+                                            className={`flex items-center gap-4 py-4 px-6 rounded-2xl font-bold transition-all text-left ${mode === "Mock Test"
+                                                    ? "bg-indigo-600 text-white shadow-xl shadow-indigo-200"
+                                                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
+                                                }`}
+                                            onClick={() => switchMode("Mock Test", 180)}
+                                        >
+                                            <span className="text-2xl">🎓</span>
+                                            <span className="text-lg">3h</span>
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mode-selector-vertical">
-                                <button className={mode === "Pomodoro" ? "active" : ""} onClick={() => switchMode("Pomodoro", 25)}>
-                                    <Zap size={18} /> <span>25m</span>
-                                </button>
-                                <button className={mode === "Deep Work" ? "active" : ""} onClick={() => switchMode("Deep Work", 50)}>
-                                    <BookOpen size={18} /> <span>50m</span>
-                                </button>
-                                <button className={mode === "Mock Test" ? "active" : ""} onClick={() => switchMode("Mock Test", 180)}>
-                                    <GraduationCap size={18} /> <span>3h</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="motivation-card">
-                            <Trophy size={24} color="#f59e0b" />
-                            <div className="mot-content">
-                                <h4>Focusing on {selectedSubject || "your goals"}</h4>
-                                <p>"The pain of discipline is far less than the pain of regret."</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT PANEL: GOALS & STATS */}
-                    <div className="stats-panel">
-                        <div className="goal-card-premium">
-                            <div className="goal-header">
-                                <h3><Target size={18} /> Daily Goal</h3>
-                                {isEditingGoal ? (
-                                    <div className="goal-edit">
-                                        <input type="number" value={goalInput} onChange={e => setGoalInput(e.target.value)} />
-                                        <button onClick={handleGoalSubmit}>OK</button>
-                                    </div>
-                                ) : (
-                                    <button className="edit-link" onClick={() => setIsEditingGoal(true)}>Edit</button>
-                                )}
-                            </div>
-
-                            <div className="goal-stats">
-                                <div className="stat-main">
-                                    <span className="big-val">{(realStats.todaySeconds / 3600).toFixed(1)}h</span>
-                                    <span className="label">Studied</span>
-                                </div>
-                                <div className="stat-separator">/</div>
-                                <div className="stat-sub">
-                                    <span className="sub-val">{(dailyGoal / 3600).toFixed(1)}h</span>
-                                    <span className="label">Target</span>
+                            {/* Motivation Card */}
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 flex items-center gap-4">
+                                <div className="text-4xl">🏆</div>
+                                <div>
+                                    <h4 className="font-bold text-amber-900 text-lg mb-1">
+                                        Focusing on {selectedSubject || "your goals"}
+                                    </h4>
+                                    <p className="text-amber-700 italic">
+                                        "The pain of discipline is far less than the pain of regret."
+                                    </p>
                                 </div>
                             </div>
-
-                            <div className="progress-track-premium">
-                                <div className="track-fill" style={{ width: `${progressPercentage}%` }}></div>
-                            </div>
-                            <p className="status-text">
-                                {progressPercentage >= 100 ? "Goal achieved! You are a champion! 🏆" : `${Math.round(100 - progressPercentage)}% remaining to reach your goal.`}
-                            </p>
                         </div>
 
-                        <div className="breakdown-card-premium">
-                            <h3>Subject Distribution</h3>
-                            <div className="dist-list">
-                                {Object.entries(realStats.bySubject).map(([sub, secs]) => (
-                                    <div key={sub} className="dist-item">
-                                        <div className="dist-info">
-                                            <span>{sub}</span>
-                                            <span>{Math.round(secs / 60)}m</span>
-                                        </div>
-                                        <div className="dist-bar">
-                                            <div
-                                                className={`dist-fill ${sub.toLowerCase()}`}
-                                                style={{ width: `${realStats.todaySeconds > 0 ? (secs / realStats.todaySeconds) * 100 : 0}%` }}
-                                            ></div>
-                                        </div>
+                        {/* RIGHT SECTION */}
+                        <div className="space-y-6">
+                            {/* Daily Goal Card */}
+                            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <Target size={20} className="text-indigo-600" />
+                                        <h3 className="font-bold text-gray-900">Daily Goal</h3>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                    {isEditingGoal ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                value={goalInput}
+                                                onChange={(e) => setGoalInput(e.target.value)}
+                                                className="w-16 px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                                            />
+                                            <button
+                                                onClick={handleGoalSubmit}
+                                                className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                                            >
+                                                OK
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setIsEditingGoal(true)}
+                                            className="text-sm text-indigo-600 font-semibold hover:text-indigo-700"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
+                                </div>
 
-                        <div className="breakdown-card-premium">
-                            <h3>Mode History</h3>
-                            <div className="mode-grid">
-                                {Object.entries(realStats.byMode).map(([m, secs]) => (
-                                    <div key={m} className="mode-box">
-                                        <span className="m-val">{Math.round(secs / 60)}m</span>
-                                        <span className="m-label">{m}</span>
+                                <div className="mb-4">
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                        <span className="text-5xl font-black text-gray-900">
+                                            {(realStats.todaySeconds / 3600).toFixed(1)}h
+                                        </span>
+                                        <span className="text-2xl text-gray-400 font-bold">
+                                            / {(dailyGoal / 3600).toFixed(1)}h
+                                        </span>
                                     </div>
-                                ))}
+                                    <div className="flex gap-6 text-xs font-bold uppercase tracking-wide">
+                                        <span className="text-gray-500">STUDIED</span>
+                                        <span className="text-gray-400">TARGET</span>
+                                    </div>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="mb-3">
+                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500"
+                                            style={{ width: `${progressPercentage}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="text-sm font-semibold text-gray-600">
+                                    {progressPercentage >= 100 ? (
+                                        <span className="text-green-600">Goal achieved! You are a champion! 🏆</span>
+                                    ) : (
+                                        <span>
+                                            {Math.round(100 - progressPercentage)}% remaining to reach your goal.
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Subject Distribution Card */}
+                            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                                <h3 className="font-bold text-gray-900 mb-5">Subject Distribution</h3>
+
+                                <div className="space-y-4">
+                                    {Object.entries(realStats.bySubject).map(([sub, secs]) => {
+                                        const percentage = realStats.todaySeconds > 0
+                                            ? (secs / realStats.todaySeconds) * 100
+                                            : 0;
+                                        const colors = {
+                                            Physics: "bg-indigo-600",
+                                            Chemistry: "bg-green-600",
+                                            Biology: "bg-amber-600"
+                                        };
+
+                                        return (
+                                            <div key={sub}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-bold text-gray-700">
+                                                        {sub}
+                                                    </span>
+                                                    <span className="text-sm font-black text-gray-900">
+                                                        {Math.round(secs / 60)}m
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full ${colors[sub]} rounded-full transition-all duration-500`}
+                                                        style={{ width: `${percentage}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Mode History Card */}
+                            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                                <h3 className="font-bold text-gray-900 mb-4">Mode History</h3>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {Object.entries(realStats.byMode).map(([m, secs]) => (
+                                        <div
+                                            key={m}
+                                            className="bg-gray-50 rounded-xl p-4 text-center"
+                                        >
+                                            <div className="text-2xl font-black text-gray-900">
+                                                {Math.round(secs / 60)}m
+                                            </div>
+                                            <div className="text-xs text-gray-500 uppercase font-bold tracking-wide mt-1">
+                                                {m}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -282,124 +436,64 @@ export default function TimerPage() {
 
                 {/* LOGGING MODAL */}
                 {showLoggingModal && (
-                    <div className="modal-overlay">
-                        <div className="logging-modal">
-                            <h2>Session Complete! 🎉</h2>
-                            <p>Great focus! Log this to keep your streak alive.</p>
-                            <div className="form-group">
-                                <label>What exactly did you study?</label>
-                                <input type="text" placeholder="e.g. Organic Chemistry, Kinematics..." value={sessionDetails.topic} onChange={e => setSessionDetails({ ...sessionDetails, topic: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>How difficult was it?</label>
-                                <div className="diff-row">
-                                    {["Easy", "Medium", "Hard"].map(d => (
-                                        <button key={d} className={`diff-btn ${sessionDetails.difficulty === d ? d.toLowerCase() : ""}`} onClick={() => setSessionDetails({ ...sessionDetails, difficulty: d })}>{d}</button>
-                                    ))}
+                    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+                            <h2 className="text-3xl font-bold text-gray-900 mb-2">Session Complete! 🎉</h2>
+                            <p className="text-gray-600 mb-6">Great focus! Log this to keep your streak alive.</p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        What exactly did you study?
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Organic Chemistry, Kinematics..."
+                                        value={sessionDetails.topic}
+                                        onChange={(e) =>
+                                            setSessionDetails({ ...sessionDetails, topic: e.target.value })
+                                        }
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        How difficult was it?
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {["Easy", "Medium", "Hard"].map((d) => (
+                                            <button
+                                                key={d}
+                                                className={`py-3 px-4 rounded-xl font-semibold transition-all ${sessionDetails.difficulty === d
+                                                        ? d === "Easy"
+                                                            ? "bg-green-100 text-green-700 border-2 border-green-500"
+                                                            : d === "Medium"
+                                                                ? "bg-yellow-100 text-yellow-700 border-2 border-yellow-500"
+                                                                : "bg-red-100 text-red-700 border-2 border-red-500"
+                                                        : "bg-gray-100 text-gray-600 border-2 border-gray-200"
+                                                    }`}
+                                                onClick={() =>
+                                                    setSessionDetails({ ...sessionDetails, difficulty: d })
+                                                }
+                                            >
+                                                {d}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                            <button className="save-session-btn" onClick={onSave}>Save & Celebrate</button>
+
+                            <button
+                                onClick={onSave}
+                                className="w-full mt-6 py-4 bg-blue-600 text-white font-bold text-lg rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                            >
+                                Save & Celebrate
+                            </button>
                         </div>
                     </div>
                 )}
             </div>
-
-            <style jsx>{`
-                .hub-container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; color: #1e293b; }
-                .page-header { margin-bottom: 40px; }
-                .header-badge { display: inline-flex; align-items: center; gap: 8px; background: #eef2ff; color: #4f46e5; padding: 6px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 800; margin-bottom: 16px; letter-spacing: 1px; }
-                .page-header h1 { font-size: 3rem; font-weight: 900; line-height: 1.1; margin-bottom: 12px; background: linear-gradient(135deg, #1e293b 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                .page-header p { font-size: 1.25rem; color: #64748b; max-width: 600px; }
-
-                .grid-layout { display: grid; grid-template-columns: 1fr 380px; gap: 40px; }
-
-                /* TIMER SECTION */
-                .section-title { font-size: 0.9rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
-                .subject-chips { display: flex; gap: 12px; margin-bottom: 32px; }
-                .subject-chip { padding: 12px 24px; border-radius: 16px; border: 2px solid #f1f5f9; background: white; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-                .subject-chip.active { background: #4f46e5; color: white; border-color: #4f46e5; transform: scale(1.05); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
-                .subject-chip:disabled { opacity: 0.8; cursor: not-allowed; }
-
-                .timer-main-area { display: flex; align-items: center; gap: 40px; margin-bottom: 40px; background: white; padding: 40px; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
-                .circular-timer-container { position: relative; width: 300px; height: 300px; }
-                .timer-svg { transform: rotate(-90deg); }
-                .timer-bg { fill: none; stroke: #f1f5f9; stroke-width: 12; }
-                .timer-progress { fill: none; stroke: #4f46e5; stroke-width: 12; stroke-linecap: round; }
-                
-                .timer-content { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                .current-mode { font-size: 0.85rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
-                .time-text { font-size: 4.5rem; font-weight: 900; color: #1e293b; letter-spacing: -2px; cursor: pointer; position: relative; }
-                .tiny-edit { position: absolute; top: 0; right: -20px; color: #cbd5e1; }
-                .edit-time-inline input { font-size: 3rem; width: 140px; border: none; border-bottom: 4px solid #4f46e5; text-align: center; font-weight: 900; outline: none; }
-                .control-row { display: flex; align-items: center; gap: 24px; margin-top: 24px; }
-                .play-btn { width: 80px; height: 80px; border-radius: 28px; background: #1e293b; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
-                .play-btn:hover { transform: scale(1.1); box-shadow: 0 15px 30px -10px rgba(30, 41, 59, 0.5); }
-                .play-btn.active { background: #4f46e5; }
-                .icon-btn { background: #f8fafc; color: #64748b; border: none; width: 44px; height: 44px; border-radius: 14px; cursor: pointer; transition: 0.2s; }
-                .icon-btn:hover { background: #f1f5f9; color: #1e293b; }
-
-                .mode-selector-vertical { display: flex; flex-direction: column; gap: 12px; }
-                .mode-selector-vertical button { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 20px; border: 1px solid #f1f5f9; background: white; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s; }
-                .mode-selector-vertical button:hover { border-color: #cbd5e1; background: #f8fafc; }
-                .mode-selector-vertical button.active { background: #1e293b; color: white; border-color: #1e293b; }
-
-                .motivation-card { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 24px; padding: 24px; display: flex; gap: 20px; align-items: center; }
-                .mot-content h4 { margin: 0 0 4px 0; color: #92400e; font-size: 1rem; }
-                .mot-content p { margin: 0; color: #b45309; font-style: italic; font-size: 0.95rem; }
-
-                /* STATS SECTION */
-                .stats-panel { display: flex; flex-direction: column; gap: 24px; }
-                .goal-card-premium { background: white; border-radius: 32px; padding: 32px; border: 1px solid #f1f5f9; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05); }
-                .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-                .goal-header h3 { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 800; }
-                .edit-link { font-size: 0.85rem; font-weight: 700; color: #4f46e5; background: none; border: none; cursor: pointer; }
-                .goal-edit { display: flex; gap: 8px; }
-                .goal-edit input { width: 60px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-weight: 700; }
-                .goal-stats { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
-                .big-val { font-size: 3.5rem; font-weight: 900; color: #1e293b; line-height: 1; }
-                .stat-separator { font-size: 2rem; color: #cbd5e1; }
-                .sub-val { font-size: 1.5rem; font-weight: 700; color: #94a3b8; }
-                .label { display: block; font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
-                
-                .progress-track-premium { height: 12px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
-                .track-fill { height: 100%; background: linear-gradient(90deg, #4f46e5 0%, #818cf8 100%); border-radius: 99px; transition: width 0.5s ease; }
-                .status-text { font-size: 0.9rem; color: #64748b; font-weight: 600; }
-
-                .breakdown-card-premium { background: white; border-radius: 28px; padding: 28px; border: 1px solid #f1f5f9; }
-                .breakdown-card-premium h3 { font-size: 1rem; font-weight: 800; margin-bottom: 20px; }
-                .dist-list { display: flex; flex-direction: column; gap: 16px; }
-                .dist-info { display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
-                .dist-bar { height: 6px; background: #f8fafc; border-radius: 99px; overflow: hidden; }
-                .dist-fill { height: 100%; border-radius: 99px; }
-                .dist-fill.physics { background: #6366f1; }
-                .dist-fill.chemistry { background: #10b981; }
-                .dist-fill.biology { background: #f59e0b; }
-
-                .mode-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-                .mode-box { background: #f8fafc; padding: 16px; border-radius: 20px; text-align: center; }
-                .m-val { display: block; font-size: 1.1rem; font-weight: 800; color: #1e293b; }
-                .m-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-
-                /* MODAL */
-                .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-                .logging-modal { background: white; padding: 40px; border-radius: 32px; width: 450px; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3); }
-                .logging-modal h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
-                .form-group { margin-top: 24px; }
-                .form-group label { display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; }
-                .form-group input { width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #f1f5f9; outline: none; font-size: 1rem; }
-                .diff-row { display: flex; gap: 12px; }
-                .diff-btn { flex: 1; padding: 14px; border-radius: 14px; border: 2px solid #f1f5f9; background: white; font-weight: 800; cursor: pointer; transition: 0.2s; }
-                .diff-btn.easy { background: #dcfce7; color: #166534; border-color: #86efac; }
-                .diff-btn.medium { background: #fef9c3; color: #854d0e; border-color: #fde047; }
-                .diff-btn.hard { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-                .save-session-btn { width: 100%; padding: 18px; border-radius: 20px; background: #4f46e5; color: white; border: none; font-weight: 800; font-size: 1.1rem; margin-top: 32px; cursor: pointer; box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
-
-                @media (max-width: 1000px) {
-                    .grid-layout { grid-template-columns: 1fr; }
-                    .timer-main-area { flex-direction: column; }
-                    .mode-selector-vertical { flex-direction: row; flex-wrap: wrap; }
-                }
-            `}</style>
         </AppShell>
     );
 }
