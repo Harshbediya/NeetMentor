@@ -3,1356 +3,359 @@
 import { useState, useEffect, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import {
-    Play, Pause, RotateCcw, Coffee, Target, Timer,
-    BookOpen, Zap, Sparkles, Brain, GraduationCap, ChevronRight, Edit2, CheckCircle, Save, Clock
+    Play, Pause, RotateCcw,
+    BookOpen, Zap, GraduationCap,
+    TrendingUp, Award, Clock, Edit3, Check
 } from "lucide-react";
 
-const STUDY_TIPS = [
-    "Drink a glass of water to keep your brain hydrated.",
-    "Try active recall – close your eyes and summarize what you just read.",
-    "Deep breathing: 4s inhale, 4s hold, 4s exhale.",
-    "Stand up and stretch your back and neck for 1 minute.",
-    "Visualize your goal: Imagine yourself in a white coat with a stethoscope."
-];
-
-const MODES = [
-    { name: "Pomodoro", work: 25, break: 5, icon: Zap, desc: "Quick intense burst" },
-    { name: "Deep Work", work: 50, break: 10, icon: Brain, desc: "Best for tough chapters" },
-    { name: "Mock Test", work: 180, break: 0, icon: GraduationCap, desc: "NEET Stamina Builder" },
-];
-
-export default function FocusTimerPage() {
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
+export default function TimerPage() {
+    const [seconds, setSeconds] = useState(25 * 60);
+    const [initialTime, setInitialTime] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
-    const [isBreak, setIsBreak] = useState(false);
-    const [duration, setDuration] = useState(25);
-    const [selectedMode, setSelectedMode] = useState(MODES[0]);
-    const [subject, setSubject] = useState("");
-    const [sessionsCompleted, setSessionsCompleted] = useState(0);
-    const [totalMinutes, setTotalMinutes] = useState(0);
-    const [dailyGoalHours, setDailyGoalHours] = useState(6);
+    const [mode, setMode] = useState("Pomodoro");
     const [mounted, setMounted] = useState(false);
-    const [currentTip, setCurrentTip] = useState(STUDY_TIPS[0]);
-    const [isEditingTime, setIsEditingTime] = useState(false);
-    const [customMinutes, setCustomMinutes] = useState("25");
-    const [currentTime, setCurrentTime] = useState(new Date());
 
-    const [isEditingStats, setIsEditingStats] = useState(false);
-    const [editHours, setEditHours] = useState(0);
-    const [editMins, setEditMins] = useState(0);
-    const [isEditingGoal, setIsEditingGoal] = useState(false);
-    const [tempGoal, setTempGoal] = useState(6);
-    const [isSavingStats, setIsSavingStats] = useState(false);
-    const [modeStats, setModeStats] = useState({
-        "Pomodoro": 0,
-        "Deep Work": 0,
-        "Mock Test": 0,
-        "Custom": 0
-    });
+    // Edit Mode State - Added for user request
+    const [isEditing, setIsEditing] = useState(false);
+    const [customInput, setCustomInput] = useState("25");
 
-    const timerRef = useRef(null);
-    const progressRef = useRef(0); // Tracks seconds elapsed in current session
+    // Stats
+    const [dailyGoal, setDailyGoal] = useState(6 * 60);
+    const [todayStudyTime, setTodayStudyTime] = useState(0);
+    const [modeStats, setModeStats] = useState({ Pomodoro: 0, "Deep Work": 0, "Mock Test": 0 });
+    const audioRef = useRef(null);
 
     useEffect(() => {
         setMounted(true);
-        fetchStats();
-        const savedGoal = localStorage.getItem("study_daily_goal");
-        if (savedGoal) {
-            setDailyGoalHours(parseInt(savedGoal));
-            setTempGoal(parseInt(savedGoal));
+        const savedStats = localStorage.getItem("neet_timer_stats");
+        if (savedStats) {
+            const parsed = JSON.parse(savedStats);
+            const today = new Date().toLocaleDateString();
+            if (parsed.date === today) {
+                setTodayStudyTime(parsed.todayTime || 0);
+                setModeStats(parsed.modeStats || { Pomodoro: 0, "Deep Work": 0, "Mock Test": 0 });
+            }
         }
-
-        const savedModeStats = localStorage.getItem("study_mode_stats");
-        if (savedModeStats) {
-            setModeStats(JSON.parse(savedModeStats));
-        }
-
-        // Real-time clock interval
-        const clockInterval = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
-
-        return () => clearInterval(clockInterval);
+        audioRef.current = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
     }, []);
 
-    // Sync modeStats to local storage
     useEffect(() => {
         if (mounted) {
-            localStorage.setItem("study_mode_stats", JSON.stringify(modeStats));
+            localStorage.setItem("neet_timer_stats", JSON.stringify({
+                date: new Date().toLocaleDateString(),
+                todayTime: todayStudyTime,
+                modeStats: modeStats
+            }));
         }
-    }, [modeStats, mounted]);
-
-    const fetchStats = async () => {
-        try {
-            const res = await fetch("/api/timer");
-            const result = await res.json();
-            if (result.success && result.data) {
-                const today = new Date().toLocaleDateString();
-                if (result.data.date === today) {
-                    setTotalMinutes(result.data.minutes || 0);
-                    setSessionsCompleted(result.data.sessions || 0);
-                    if (result.data.modeStats) setModeStats(result.data.modeStats);
-
-                    setEditHours(Math.floor((result.data.minutes || 0) / 60));
-                    setEditMins((result.data.minutes || 0) % 60);
-                } else {
-                    // New day reset
-                    setModeStats({ "Pomodoro": 0, "Deep Work": 0, "Mock Test": 0, "Custom": 0 });
-                }
-            }
-        } catch (error) {
-            console.error("Failed to fetch timer stats", error);
-        }
-    };
-
-    const saveStatsToDB = async (minutes, sessions, specificModeStats) => {
-        const today = new Date().toLocaleDateString();
-        try {
-            setIsSavingStats(true);
-            await fetch("/api/timer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    stats: {
-                        date: today,
-                        minutes: minutes,
-                        sessions: sessions === undefined ? sessionsCompleted : sessions,
-                        modeStats: specificModeStats || modeStats
-                    }
-                })
-            });
-            setTotalMinutes(minutes);
-            if (sessions !== undefined) setSessionsCompleted(sessions);
-            if (specificModeStats) setModeStats(specificModeStats);
-        } catch (error) {
-            console.error("Failed to save timer stats", error);
-        } finally {
-            setIsSavingStats(false);
-        }
-    };
-
-    const saveGoal = (val) => {
-        const goal = Math.max(1, Math.min(24, parseInt(val) || 6));
-        setDailyGoalHours(goal);
-        setTempGoal(goal);
-        localStorage.setItem("study_daily_goal", goal.toString());
-        setIsEditingGoal(false);
-    };
+    }, [todayStudyTime, modeStats, mounted]);
 
     useEffect(() => {
-        if (isActive && timeLeft > 0) {
-            timerRef.current = setInterval(() => {
-                setTimeLeft((prev) => {
-                    const newTime = prev - 1;
-                    progressRef.current += 1;
-
-                    // Every 60 seconds of study, increment stats
-                    if (!isBreak && progressRef.current % 60 === 0) {
-                        const modeName = selectedMode.name || "Custom";
-                        setModeStats(prev => ({
-                            ...prev,
-                            [modeName]: (prev[modeName] || 0) + 1
-                        }));
-                        setTotalMinutes(t => t + 1);
-                        // Optional: save to DB every minute? Might be too many requests. 
-                        // Let's just save on pause or end.
-                    }
-                    return newTime;
-                });
+        let interval = null;
+        if (isActive && seconds > 0) {
+            interval = setInterval(() => {
+                setSeconds(s => s - 1);
             }, 1000);
-        } else if (timeLeft === 0 && isActive) {
-            handleSessionEnd();
+        } else if (seconds === 0 && isActive) {
+            clearInterval(interval);
+            setIsActive(false);
+            handleTimerComplete();
         }
-        return () => clearInterval(timerRef.current);
-    }, [isActive, timeLeft, isBreak, selectedMode]);
+        return () => clearInterval(interval);
+    }, [isActive, seconds]);
 
-    const handleSessionEnd = () => {
-        setIsActive(false);
-        const elapsedMinsInCurrent = Math.floor(progressRef.current / 60);
-        progressRef.current = 0; // Reset for next
+    const handleTimerComplete = () => {
+        if (audioRef.current) audioRef.current.play();
 
-        if (!isBreak) {
-            const newSessionCount = sessionsCompleted + 1;
-            saveStatsToDB(totalMinutes, newSessionCount); // totalMinutes is already incremented by the interval
-            if (selectedMode.break > 0) {
-                setIsBreak(true);
-                setTimeLeft(selectedMode.break * 60);
-                setCurrentTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)]);
-            } else {
-                alert("Session Complete! Great stamina.");
-                resetTimer();
-            }
-        } else {
-            setIsBreak(false);
-            setTimeLeft(duration * 60);
+        const minutesCompleted = initialTime / 60;
+        setTodayStudyTime(prev => prev + minutesCompleted);
+        setModeStats(prev => ({
+            ...prev,
+            [mode]: (prev[mode] || 0) + minutesCompleted
+        }));
+
+        if (typeof window !== "undefined") {
+            alert(`Great job! You finished a ${mode} session.`);
         }
     };
 
-    const formatSecondsToMMSS = (seconds) => {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    };
-
-    const formatMinutesToHM = (totalMins) => {
-        const h = Math.floor(totalMins / 60);
-        const m = totalMins % 60;
-        return { h, m };
-    };
-
-    const toggleTimer = () => {
-        setIsActive(!isActive);
-        setIsEditingTime(false);
-    };
+    const toggleTimer = () => setIsActive(!isActive);
 
     const resetTimer = () => {
         setIsActive(false);
-        setIsBreak(false);
-        setTimeLeft(duration * 60);
+        setSeconds(initialTime);
     };
 
-    const changeMode = (mode) => {
-        setSelectedMode(mode);
-        updateDuration(mode.work);
-    };
-
-    const updateDuration = (mins) => {
-        const m = parseInt(mins) || 1;
-        setDuration(m);
-        setCustomMinutes(m.toString());
+    const switchMode = (newMode, minutes) => {
+        setMode(newMode);
+        setIsEditing(false);
         setIsActive(false);
-        setIsBreak(false);
-        setTimeLeft(m * 60);
-        setIsEditingTime(false);
+        const secs = minutes * 60;
+        setSeconds(secs);
+        setInitialTime(secs);
+        setCustomInput(minutes.toString());
     };
 
-    const handleCustomSubmit = (e) => {
-        e.preventDefault();
-        updateDuration(customMinutes);
+    const handleCustomTimeSubmit = () => {
+        const mins = parseInt(customInput);
+        if (!isNaN(mins) && mins > 0) {
+            const secs = mins * 60;
+            setInitialTime(secs);
+            setSeconds(secs);
+            setIsEditing(false);
+            setMode("Custom");
+        }
     };
 
-    const handleManualStatUpdate = async () => {
-        const newTotal = (parseInt(editHours) * 60) + parseInt(editMins);
-        await saveStatsToDB(newTotal, sessionsCompleted);
-        setIsEditingStats(false);
+    const formatTime = (secs) => {
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
+        if (h > 0) {
+            return `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+        }
+        return `${m}:${s < 10 ? "0" : ""}${s}`;
     };
 
     if (!mounted) return null;
 
-    const { h: currentH, m: currentM } = formatMinutesToHM(totalMinutes);
+    const progressPercentage = Math.min((todayStudyTime / dailyGoal) * 100, 100);
+    // Avoid division by zero
+    const sessionProgress = initialTime > 0 ? ((initialTime - seconds) / initialTime) * 100 : 0;
 
     return (
         <AppShell>
-            <div className="timer-page-container">
-
-                {/* Header Section */}
-                <header className="timer-header">
-                    <div className="header-text">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div className="header-pill">
-                                <div className="pill-icon">
-                                    <Timer size={16} color="var(--color-primary)" />
-                                </div>
-                                <span>CONCENTRATION HUB</span>
-                            </div>
-                            <div className="live-clock-pill">
-                                <Clock size={14} />
-                                <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                            </div>
-                        </div>
-                        <h1 className="main-title">
-                            {selectedMode.name} <span className="highlight-text">Mode</span>
-                        </h1>
-                        <p className="subtitle">{selectedMode.desc}</p>
+            <div className="hub-container">
+                <header className="page-header">
+                    <div className="header-badge">
+                        <Clock size={14} /> CONCENTRATION HUB
                     </div>
-
-                    <div className="header-stats">
-                        <div className="stat-card" onClick={() => !isEditingStats && setIsEditingStats(true)}>
-                            <div className="stat-label">TODAY'S TOTAL</div>
-
-                            {isEditingStats ? (
-                                <div className="stat-edit-row" onClick={e => e.stopPropagation()}>
-                                    <input type="number" value={editHours} onChange={(e) => setEditHours(e.target.value)} className="stat-input" />
-                                    <span>h</span>
-                                    <input type="number" value={editMins} onChange={(e) => setEditMins(e.target.value)} className="stat-input" />
-                                    <span>m</span>
-                                    <button onClick={handleManualStatUpdate} className="stat-save-btn"><Save size={14} /></button>
-                                </div>
-                            ) : (
-                                <div className="stat-value">
-                                    {currentH}h {currentM}m <Edit2 size={12} className="edit-hint" />
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="stat-card accent">
-                            <div className="stat-label accent">SESSIONS</div>
-                            <div className="stat-value accent">{sessionsCompleted}</div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 700, opacity: 0.6, marginTop: '4px', color: 'var(--color-primary)' }}>
-                                UPDATES ON FINISH
-                            </div>
-                        </div>
-                    </div>
+                    <h1>Focus Statistics & Timer</h1>
+                    <p>Track your study hours and stay in the zone.</p>
                 </header>
 
-                <div className="timer-content-grid">
+                <div className="grid-layout">
+                    {/* LEFT PANEL: TIMER */}
+                    <div className="timer-panel">
+                        <div className="presets-row">
+                            <button
+                                className={`preset-card ${mode === "Pomodoro" ? "active" : ""}`}
+                                onClick={() => switchMode("Pomodoro", 25)}
+                            >
+                                <div className="icon-box"><Zap size={20} /></div>
+                                <div className="text-box">
+                                    <h3>Pomodoro</h3>
+                                    <span>25m</span>
+                                </div>
+                            </button>
+                            <button
+                                className={`preset-card ${mode === "Deep Work" ? "active" : ""}`}
+                                onClick={() => switchMode("Deep Work", 50)}
+                            >
+                                <div className="icon-box"><BookOpen size={20} /></div>
+                                <div className="text-box">
+                                    <h3>Deep Work</h3>
+                                    <span>50m</span>
+                                </div>
+                            </button>
+                            <button
+                                className={`preset-card ${mode === "Mock Test" ? "active" : ""}`}
+                                onClick={() => switchMode("Mock Test", 180)}
+                            >
+                                <div className="icon-box"><GraduationCap size={20} /></div>
+                                <div className="text-box">
+                                    <h3>Mock Test</h3>
+                                    <span>180m</span>
+                                </div>
+                            </button>
+                        </div>
 
-                    {/* Left Panel: Main Timer */}
-                    <div className="timer-main-card-wrapper">
-                        <div className={`timer-card ${isBreak ? 'break-mode' : ''}`}>
+                        <div className="main-timer-card">
+                            <div className="timer-header">
+                                <span className="mode-badge">{mode.toUpperCase()}</span>
+                                {isActive && <span className="live-status">LIVE</span>}
+                            </div>
 
-                            {!isBreak && !isActive && (
-                                <div className="subject-input-wrapper">
-                                    <div className="input-with-icon">
-                                        <BookOpen className="input-icon" size={18} />
+                            {/* Editable Timer Display */}
+                            <div className="timer-display-wrapper">
+                                {isEditing ? (
+                                    <div className="edit-time-box">
                                         <input
-                                            type="text"
-                                            placeholder="What are you studying tonight?"
-                                            value={subject}
-                                            onChange={(e) => setSubject(e.target.value)}
+                                            type="number"
+                                            value={customInput}
+                                            onChange={(e) => setCustomInput(e.target.value)}
+                                            className="time-input"
+                                            autoFocus
                                         />
-                                    </div>
-                                </div>
-                            )}
-
-                            {isBreak ? (
-                                <div className="break-display">
-                                    <div className="break-icon-wrapper">
-                                        <Coffee size={48} fill="#DCFCE7" />
-                                    </div>
-                                    <h2 className="break-title">Relax & Recharge</h2>
-                                    <div className="study-tip-pill">
-                                        <Sparkles size={16} color="#10B981" />
-                                        <span>{currentTip}</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="timer-display-controls">
-                                    {isActive && subject && (
-                                        <div className="focusing-pill">
-                                            <div className="pulse-dot"></div>
-                                            <span>Focusing: {subject}</span>
-                                        </div>
-                                    )}
-
-                                    {isEditingTime && !isActive ? (
-                                        <form onSubmit={handleCustomSubmit} className="custom-time-form">
-                                            <div className="input-group">
-                                                <input
-                                                    type="number"
-                                                    autoFocus
-                                                    value={customMinutes}
-                                                    onChange={(e) => setCustomMinutes(e.target.value)}
-                                                />
-                                                <span className="mins-label">MINS</span>
-                                            </div>
-                                            <button type="submit" className="btn btn-primary set-time-btn">Set Time</button>
-                                        </form>
-                                    ) : (
-                                        <div
-                                            className={`timer-clock ${isActive ? 'active' : ''}`}
-                                            onClick={() => !isActive && setIsEditingTime(true)}
-                                            title={!isActive ? "Click to edit time" : ""}
-                                        >
-                                            {formatSecondsToMMSS(timeLeft)}
-                                            {!isActive && (
-                                                <div className="timer-edit-trigger">
-                                                    <Edit2 size={14} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Sub-timer hint to show session progress */}
-                                    {isActive && !isBreak && (
-                                        <div style={{
-                                            marginTop: '1rem',
-                                            fontSize: '0.85rem',
-                                            fontWeight: 800,
-                                            color: '#94A3B8',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '0.5rem'
-                                        }}>
-                                            <Sparkles size={14} color="var(--color-primary)" />
-                                            <span>
-                                                {Math.floor((timeLeft / (duration * 60)) * 100)}% to next session
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="timer-buttons">
-                                <button
-                                    onClick={toggleTimer}
-                                    className={`btn main-action-btn ${isActive ? 'danger' : 'primary'}`}
-                                >
-                                    {isActive ? <><Pause size={20} strokeWidth={3} /> Hold Session</> : <><Play size={20} fill="white" strokeWidth={3} /> Start Focus</>}
-                                </button>
-
-                                <button
-                                    onClick={resetTimer}
-                                    className="btn btn-secondary reset-btn"
-                                >
-                                    <RotateCcw size={20} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right Panel: Modes & Motivation */}
-                    <aside className="timer-sidebar">
-
-                        <div className="card sidebar-presets">
-                            <h3 className="section-title">
-                                <Zap size={18} fill="var(--color-primary)" color="var(--color-primary)" /> Quick Presets
-                            </h3>
-                            <div className="presets-list">
-                                {MODES.map((mode) => {
-                                    const modeMinsDone = modeStats[mode.name] || 0;
-                                    const isCurrent = selectedMode.name === mode.name;
-                                    // Progress bar logic if active
-                                    const sessionElapsed = isCurrent && !isBreak ? Math.floor(progressRef.current / 60) : 0;
-
-                                    return (
-                                        <button
-                                            key={mode.name}
-                                            onClick={() => changeMode(mode)}
-                                            className={`preset-btn-item ${isCurrent ? 'active' : ''}`}
-                                            style={{ position: 'relative', overflow: 'hidden' }}
-                                        >
-                                            <div className="preset-icon">
-                                                <mode.icon size={20} />
-                                            </div>
-                                            <div className="preset-info">
-                                                <div className="preset-name">{mode.name}</div>
-                                                <div className="preset-timer">
-                                                    {mode.work}m interval • {modeMinsDone > 0 ? `${modeMinsDone}m today` : 'Not started'}
-                                                </div>
-                                            </div>
-                                            {/* Micro Progress Bar */}
-                                            <div style={{
-                                                position: 'absolute', bottom: 0, left: 0, height: '4px',
-                                                width: `${Math.min((modeMinsDone / mode.work) * 100, 100)}%`,
-                                                background: 'var(--color-primary)', opacity: 0.3
-                                            }}></div>
+                                        <button className="save-time-btn" onClick={handleCustomTimeSubmit}>
+                                            <Check size={24} />
                                         </button>
-                                    );
-                                })}
-
-                                <button
-                                    onClick={() => setIsEditingTime(true)}
-                                    className={`preset-btn-item custom ${isEditingTime ? 'editing' : ''}`}
-                                >
-                                    <div className="preset-icon">
-                                        <Edit2 size={20} />
-                                    </div>
-                                    <div className="preset-info">
-                                        <div className="preset-name">Custom Time</div>
-                                        <div className="preset-timer">Set your own minutes</div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="card expert-tip-card">
-                            <div className="tip-header">
-                                <Sparkles size={16} fill="#C7D2FE" />
-                                <span>STUDY EXPERT</span>
-                            </div>
-                            <p className="tip-text">
-                                "The brain thrives on predictability. Use the <b>same timer duration</b> for the same subject to build a neural trigger for deep concentration."
-                            </p>
-                        </div>
-
-                    </aside>
-                </div>
-
-                {/* Performance Section with Mode Breakdown */}
-                <div className="performance-section">
-                    <div className="performance-header">
-                        <h3 className="performance-title">
-                            <Clock size={18} color="var(--color-primary)" /> Daily Performance
-                        </h3>
-                        <div className="goal-editor" onClick={() => setIsEditingGoal(true)}>
-                            {isEditingGoal ? (
-                                <div className="goal-edit-input" onClick={e => e.stopPropagation()}>
-                                    <span>GOAL:</span>
-                                    <input
-                                        type="number"
-                                        value={tempGoal}
-                                        onChange={e => setTempGoal(e.target.value)}
-                                    />
-                                    <span>HRS</span>
-                                    <CheckCircle size={16} className="save-goal-icon" onClick={() => saveGoal(tempGoal)} />
-                                </div>
-                            ) : (
-                                <>GOAL: {dailyGoalHours} HOURS <Edit2 size={12} /></>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
-                        <div className="card performance-card">
-                            <div className="progress-container">
-                                <div className="progress-info">
-                                    <span className="label">Overall Completion</span>
-                                    <span className="percentage">{Math.round((totalMinutes / (dailyGoalHours * 60)) * 100)}%</span>
-                                </div>
-                                <div className="progress-bar-bg">
-                                    <div className="progress-bar-fill" style={{ width: `${Math.min((totalMinutes / (dailyGoalHours * 60)) * 100, 100)}%` }}></div>
-                                </div>
-                            </div>
-
-                            <div className="goal-status-divider"></div>
-
-                            <div className="goal-status-display">
-                                {totalMinutes >= dailyGoalHours * 60 ? (
-                                    <div className="goal-achieved">
-                                        <div className="achievement-icon">
-                                            <CheckCircle size={22} />
-                                        </div>
-                                        <div className="achievement-text">
-                                            <div className="main">GOAL ACHIEVED</div>
-                                            <div className="sub">Target: {dailyGoalHours}h Met</div>
-                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="goal-remaining">
-                                        <div className="time-left">
-                                            {Math.floor((dailyGoalHours * 60 - totalMinutes) / 60)}h {(dailyGoalHours * 60 - totalMinutes) % 60}m
-                                        </div>
-                                        <div className="time-label">LEFT TO REACH GOAL</div>
-                                        <div className="target-pill">
-                                            <Target size={12} /> TARGET: {dailyGoalHours}H
-                                        </div>
+                                    <div className={`time-display ${isActive ? "active" : ""}`}>
+                                        {formatTime(seconds)}
+                                        <button className="edit-icon" onClick={() => setIsEditing(true)}>
+                                            <Edit3 size={20} />
+                                        </button>
                                     </div>
                                 )}
                             </div>
-                        </div>
 
-                        {/* Mode breakdown card - Redesigned for premium look */}
-                        <div className="card performance-card-breakdown">
-                            <div className="breakdown-header">
-                                <Zap size={14} fill="#F59E0B" color="#F59E0B" />
-                                <h4>MODE BREAKDOWN</h4>
+                            {/* Session Progress Bar */}
+                            <div className="session-progress">
+                                <div className="bar-bg">
+                                    <div className="bar-fill" style={{ width: `${sessionProgress}%` }}></div>
+                                </div>
+                                <div className="session-visuals">
+                                    <span>{Math.floor((initialTime - seconds) / 60)}m elapsed</span>
+                                    <span>{Math.floor(initialTime / 60)}m total</span>
+                                </div>
                             </div>
 
-                            <div className="breakdown-list">
-                                {[...MODES, { name: "Custom", icon: Clock, work: duration }].map(m => {
-                                    const minsDone = modeStats[m.name] || 0;
-                                    if (m.name === "Custom" && minsDone === 0) return null;
+                            <div className="timer-controls">
+                                <button className="control-btn reset" onClick={resetTimer}>
+                                    <RotateCcw size={22} />
+                                </button>
+                                <button className={`control-btn play ${isActive ? "playing" : ""}`} onClick={toggleTimer}>
+                                    {isActive ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" style={{ marginLeft: 4 }} />}
+                                    <span>{isActive ? "PAUSE" : "START FOCUS"}</span>
+                                </button>
+                            </div>
+                        </div>
 
-                                    return (
-                                        <div key={m.name} className="breakdown-item">
-                                            <div className="item-top">
-                                                <div className="item-label">
-                                                    <div className="item-icon-small">
-                                                        <m.icon size={12} />
-                                                    </div>
-                                                    <span>{m.name}</span>
-                                                </div>
-                                                <div className="item-stats">
-                                                    <span className="done">{minsDone}m</span>
-                                                    <span className="sep">/</span>
-                                                    <span className="total">{m.work}m</span>
-                                                </div>
-                                            </div>
-                                            <div className="item-progress-track">
-                                                <div className="item-progress-fill" style={{
-                                                    width: `${Math.min((minsDone / m.work) * 100, 100)}%`,
-                                                    background: m.name === 'Deep Work' ? 'linear-gradient(90deg, #6366F1, #818CF8)' :
-                                                        m.name === 'Mock Test' ? 'linear-gradient(90deg, #F43F5E, #FB7185)' :
-                                                            m.name === 'Custom' ? 'linear-gradient(90deg, #94A3B8, #CBD5E1)' :
-                                                                'linear-gradient(90deg, #4F46E5, #6366F1)'
-                                                }}></div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                        <div className="expert-tip">
+                            <div className="tip-icon"><Award size={20} color="#fbbf24" /></div>
+                            <div className="tip-content">
+                                <h4>Study Expert Tip</h4>
+                                <p>
+                                    {mode === "Pomodoro" && "Take a 5 minute break after this cycle. Your brain needs to reset."}
+                                    {mode === "Deep Work" && "Eliminate all distractions. Put your phone in another room."}
+                                    {mode === "Mock Test" && "Simulate exam conditions. No water breaks for the first hour."}
+                                    {mode === "Custom" && "Consistency is key. Keep pushing!"}
+                                </p>
                             </div>
                         </div>
                     </div>
-                </div>
 
+                    {/* RIGHT PANEL: STATS */}
+                    <div className="stats-panel">
+                        <div className="daily-progress-card">
+                            <h3><TrendingUp size={18} /> Daily Performance</h3>
+                            <div className="progress-circle">
+                                <span className="progress-value">{Math.round(todayStudyTime / 60 * 10) / 10}h</span>
+                                <span className="progress-label">Today's Study</span>
+                            </div>
+                            <div className="progress-bar-container">
+                                <div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div>
+                            </div>
+                            <p className="goal-text">Goal: {dailyGoal / 60} Hours ({Math.round(progressPercentage)}%)</p>
+                        </div>
+
+                        <div className="breakdown-card">
+                            <h3>Mode Breakdown</h3>
+                            <ul className="stats-list">
+                                <li>
+                                    <span>Pomodoro</span>
+                                    <span className="stat-val">{Math.round(modeStats.Pomodoro || 0)}m</span>
+                                </li>
+                                <li>
+                                    <span>Deep Work</span>
+                                    <span className="stat-val">{Math.round(modeStats["Deep Work"] || 0)}m</span>
+                                </li>
+                                <li>
+                                    <span>Mock Test</span>
+                                    <span className="stat-val">{Math.round(modeStats["Mock Test"] || 0)}m</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <style jsx>{`
-                .timer-page-container {
-                    max-width: 1000px;
+                .hub-container {
+                    max-width: 1100px;
                     margin: 0 auto;
-                    padding: 2rem 1rem 4rem;
-                }
-
-                .timer-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    gap: 2rem;
-                    margin-bottom: 3rem;
-                    padding-top: 1rem;
-                }
-
-                .header-pill {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    margin-bottom: 0.75rem;
-                }
-
-                .header-pill span {
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                    color: var(--color-primary);
-                    letter-spacing: 0.08em;
-                }
-
-                .live-clock-pill {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    padding: 0.4rem 0.8rem;
-                    background: #F8FAFC;
-                    border: 1px solid #E2E8F0;
-                    border-radius: 10px;
-                    color: #64748B;
-                    font-size: 0.8rem;
-                    font-weight: 800;
-                    margin-bottom: 0.75rem;
-                }
-
-                .main-title {
-                    font-size: clamp(1.8rem, 5vw, 2.8rem);
-                    font-weight: 950;
-                    letter-spacing: -0.04em;
-                    margin-bottom: 0.5rem;
-                }
-
-                .highlight-text {
-                    color: var(--color-primary);
-                }
-
-                .subtitle {
-                    color: var(--color-text-muted);
-                    font-weight: 600;
-                    font-size: clamp(0.9rem, 2vw, 1.05rem);
-                }
-
-                .header-stats {
-                    display: flex;
-                    gap: 1rem;
-                }
-
-                .stat-card {
-                    padding: 1rem 1.4rem;
-                    background: white;
-                    border-radius: 20px;
-                    border: 1px solid var(--color-border);
-                    box-shadow: var(--shadow-sm);
-                    min-width: 160px;
-                    cursor: pointer;
-                }
-
-                .stat-card.accent {
-                    background: var(--color-primary-light);
-                    border-color: var(--color-primary-medium);
-                    cursor: default;
-                }
-
-                .stat-label {
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    color: var(--color-text-muted);
-                    margin-bottom: 0.4rem;
-                    letter-spacing: 0.05em;
-                }
-
-                .stat-label.accent {
-                    color: var(--color-primary);
-                }
-
-                .stat-value {
-                    font-size: 1.3rem;
-                    font-weight: 900;
-                    display: flex;
-                    align-items: baseline;
-                    gap: 0.25rem;
-                }
-
-                .stat-value.accent {
-                    color: var(--color-primary);
-                }
-
-                .edit-hint {
-                    opacity: 0.3;
-                    margin-left: 0.25rem;
-                }
-
-                .stat-edit-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.25rem;
-                }
-
-                .stat-input {
-                    width: 38px;
-                    border: 1px solid var(--color-border);
-                    border-radius: 6px;
-                    padding: 4px;
-                    text-align: center;
-                    font-weight: 800;
-                    font-size: 1rem;
-                }
-
-                .stat-save-btn {
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 4px 8px;
-                    margin-left: 0.25rem;
-                }
-
-                .timer-content-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 320px;
-                    gap: 2rem;
-                }
-
-                .timer-card {
-                    padding: clamp(2rem, 8vw, 4rem) 2rem;
-                    background: white;
-                    border-radius: 40px;
-                    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.06);
-                    border: 1px solid var(--color-border);
-                    text-align: center;
-                    min-height: 520px;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    transition: all 0.3s ease;
-                }
-
-                .timer-card.break-mode {
-                    background: linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%);
-                    border-color: #10B981;
-                }
-
-                .subject-input-wrapper {
-                    max-width: 380px;
-                    margin: 0 auto 2.5rem;
-                    width: 100%;
-                }
-
-                .input-with-icon {
-                    position: relative;
-                }
-
-                .input-icon {
-                    position: absolute;
-                    left: 14px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: #94A3B8;
-                }
-
-                .input-with-icon input {
-                    width: 100%;
-                    padding: 0.9rem 1rem 0.9rem 2.8rem;
-                    border-radius: 16px;
-                    border: 2px solid #F1F5F9;
-                    background: #F8FAFC;
-                    font-size: 0.95rem;
-                    font-weight: 600;
-                    outline: none;
-                    transition: all 0.2s;
-                }
-
-                .input-with-icon input:focus {
-                    border-color: var(--color-primary-medium);
-                    background: white;
-                    box-shadow: 0 0 0 4px var(--color-primary-light);
-                }
-
-                .break-icon-wrapper {
-                    color: #10B981;
-                    margin-bottom: 1.5rem;
-                }
-
-                .break-title {
-                    font-size: 2rem;
-                    font-weight: 900;
-                    color: #166534;
-                    margin-bottom: 1rem;
-                }
-
-                .study-tip-pill {
-                    background: white;
-                    padding: 0.8rem 1.2rem;
-                    border-radius: 14px;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                    border: 1px dashed #10B981;
-                    max-width: 90%;
-                }
-
-                .study-tip-pill span {
-                    font-size: 0.85rem;
-                    font-weight: 700;
-                    color: #15803D;
-                    text-align: left;
-                }
-
-                .timer-display-controls {
-                    margin-bottom: 3rem;
-                    position: relative;
-                }
-
-                .focusing-pill {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    padding: 0.5rem 1rem;
-                    background: var(--color-primary-light);
-                    border-radius: 10px;
-                    margin-bottom: 1.5rem;
-                }
-
-                .pulse-dot {
-                    width: 8px;
-                    height: 8px;
-                    border-radius: 50%;
-                    background: var(--color-primary);
-                    animation: pulse 1.5s infinite;
-                }
-
-                .focusing-pill span {
-                    font-size: 0.8rem;
-                    font-weight: 800;
-                    color: var(--color-primary);
-                }
-
-                .timer-clock {
-                    font-size: clamp(5rem, 15vw, 8.5rem);
-                    font-weight: 950;
-                    font-variant-numeric: tabular-nums;
-                    line-height: 1;
-                    letter-spacing: -0.06em;
-                    position: relative;
-                    display: inline-block;
-                    cursor: pointer;
-                    transition: color 0.3s;
-                }
-
-                .timer-clock.active {
-                    color: var(--color-primary);
-                    cursor: default;
-                }
-
-                .timer-edit-trigger {
-                    position: absolute;
-                    top: -5px;
-                    right: -35px;
-                    background: #F1F5F9;
-                    padding: 6px;
-                    border-radius: 8px;
-                    color: #64748B;
-                }
-
-                .custom-time-form {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 1.5rem;
-                }
-
-                .input-group {
-                    display: flex;
-                    align-items: baseline;
-                    gap: 0.75rem;
-                }
-
-                .input-group input {
-                    font-size: 6rem;
-                    font-weight: 950;
-                    width: 180px;
-                    border: none;
-                    outline: none;
-                    background: transparent;
-                    text-align: center;
-                    color: var(--color-primary);
-                    letter-spacing: -0.06em;
-                }
-
-                .mins-label {
-                    font-size: 1.5rem;
-                    font-weight: 900;
-                    color: #94A3B8;
-                }
-
-                .timer-buttons {
-                    display: flex;
-                    justify-content: center;
-                    gap: 1rem;
-                }
-
-                .main-action-btn {
-                    padding: 1rem 3rem;
-                    border-radius: 20px;
-                    font-size: 1rem;
-                    font-weight: 900;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                    transition: all 0.3s;
-                }
-
-                .main-action-btn.primary {
-                    background: var(--color-primary);
-                    color: white;
-                    box-shadow: 0 15px 30px -10px rgba(79, 70, 229, 0.4);
-                }
-
-                .main-action-btn.danger {
-                    background: #FEE2E2;
-                    color: #EF4444;
-                }
-
-                .reset-btn {
-                    padding: 1rem 1.5rem;
-                    border-radius: 20px;
-                    background: white;
-                    border: 1px solid var(--color-border);
-                }
-
-                .timer-sidebar {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.5rem;
-                }
-
-                .sidebar-presets {
-                    padding: 1.5rem;
-                    border-radius: 24px;
-                }
-
-                .section-title {
-                    font-size: 1rem;
-                    font-weight: 900;
-                    margin-bottom: 1.25rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                }
-
-                .presets-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
-                }
-
-                .preset-btn-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    padding: 0.75rem 1rem;
-                    border-radius: 14px;
-                    border: 2.5px solid transparent;
-                    background: #F8FAFC;
-                    cursor: pointer;
-                    text-align: left;
-                    transition: all 0.2s;
-                }
-
-                .preset-btn-item.active {
-                    border-color: var(--color-primary);
-                    background: var(--color-primary-light);
-                }
-
-                .preset-icon {
-                    padding: 8px;
-                    background: white;
-                    border-radius: 8px;
-                    box-shadow: var(--shadow-sm);
-                    color: #64748B;
-                }
-
-                .preset-btn-item.active .preset-icon {
-                    background: var(--color-primary);
-                    color: white;
-                }
-
-                .preset-name {
-                    font-size: 0.85rem;
-                    font-weight: 800;
-                }
-
-                .preset-btn-item.active .preset-name {
-                    color: var(--color-primary);
-                }
-
-                .preset-timer {
-                    font-size: 0.7rem;
-                    font-weight: 600;
-                    color: #64748B;
-                }
-
-                .preset-btn-item.custom {
-                    border: 2.5px dashed #E2E8F0;
-                    background: white;
-                }
-
-                .expert-tip-card {
-                    padding: 1.5rem;
-                    border-radius: 24px;
-                    background: linear-gradient(135deg, #4F46E5 0%, #312E81 100%);
-                    color: white;
-                    border: none;
-                }
-
-                .tip-header {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    margin-bottom: 0.75rem;
-                    font-size: 0.7rem;
-                    font-weight: 900;
-                    letter-spacing: 0.1em;
-                    color: #C7D2FE;
-                }
-
-                .tip-text {
-                    font-size: 0.85rem;
-                    line-height: 1.6;
-                    font-weight: 500;
-                    opacity: 0.95;
-                }
-
-                .performance-section {
-                    margin-top: 3rem;
-                }
-
-                .performance-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 1.25rem;
-                }
-
-                .performance-title {
-                    font-size: 1.1rem;
-                    font-weight: 900;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-
-                .goal-editor {
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                    color: var(--color-primary);
-                    background: var(--color-primary-light);
-                    padding: 0.4rem 0.8rem;
-                    border-radius: 10px;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                    cursor: pointer;
-                }
-
-                .goal-edit-input {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                }
-
-                .goal-edit-input input {
-                    width: 35px;
-                    border: 1px solid var(--color-primary);
-                    border-radius: 4px;
-                    text-align: center;
-                    font-weight: bold;
-                    background: white;
-                }
-
-                .performance-card {
-                    padding: 2rem;
-                    border-radius: 28px;
-                    display: flex;
-                    align-items: center;
-                    gap: 2.5rem;
-                }
-
-                .performance-card-breakdown {
-                    padding: 1.5rem;
-                    border-radius: 28px;
-                    background: white;
-                }
-
-                .breakdown-header {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    margin-bottom: 1.25rem;
-                }
-
-                .breakdown-header h4 {
-                    font-size: 0.75rem;
-                    font-weight: 900;
-                    color: #64748B;
-                    letter-spacing: 0.05em;
-                }
-
-                .breakdown-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.15rem;
-                }
-
-                .breakdown-item {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                }
-
-                .item-top {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-
-                .item-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-
-                .item-label span {
-                    font-size: 0.8rem;
-                    font-weight: 800;
-                    color: var(--color-text-main);
-                }
-
-                .item-icon-small {
-                    padding: 4px;
-                    background: #F1F5F9;
-                    border-radius: 6px;
-                    color: #64748B;
-                    display: flex;
-                }
-
-                .item-stats {
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                }
-
-                .item-stats .done {
-                    color: var(--color-primary);
-                }
-
-                .item-stats .sep {
-                    margin: 0 2px;
-                    opacity: 0.3;
-                }
-
-                .item-stats .total {
-                    color: #94A3B8;
-                }
-
-                .item-progress-track {
-                    height: 6px;
-                    background: #F1F5F9;
-                    border-radius: 4px;
-                    overflow: hidden;
-                }
-
-                .item-progress-fill {
-                    height: 100%;
-                    border-radius: 4px;
-                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-
-                .progress-container {
-                    flex: 1;
-                }
-
-                .progress-info {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 0.75rem;
-                }
-
-                .progress-info .label {
-                    font-weight: 800;
-                    color: #64748B;
-                    font-size: 0.8rem;
-                }
-
-                .progress-info .percentage {
-                    font-weight: 900;
-                    color: var(--color-primary);
-                }
-
-                .progress-bar-bg {
-                    height: 12px;
-                    background: #F1F5F9;
-                    border-radius: 10px;
-                    overflow: hidden;
-                }
-
-                .progress-bar-fill {
-                    height: 100%;
-                    background: linear-gradient(90deg, #4F46E5, #818CF8);
-                    border-radius: 10px;
-                    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-
-                .goal-status-divider {
-                    width: 1px;
-                    height: 60px;
-                    background: #E2E8F0;
-                }
-
-                .goal-status-display {
-                    text-align: center;
-                    min-width: 180px;
-                }
-
-                .goal-achieved {
-                    color: #10B981;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    text-align: left;
-                }
-
-                .achievement-icon {
-                    background: #DCFCE7;
-                    padding: 8px;
-                    border-radius: 50%;
-                }
-
-                .achievement-text .main {
-                    font-size: 1rem;
-                    font-weight: 950;
-                }
-
-                .achievement-text .sub {
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    opacity: 0.8;
-                }
-
-                .time-left {
-                    font-size: 1.8rem;
-                    font-weight: 950;
-                    color: var(--color-text-main);
-                    line-height: 1;
-                }
-
-                .time-label {
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    color: #FB7185;
-                    letter-spacing: 0.05em;
-                    margin: 0.25rem 0 0.75rem;
-                }
-
-                .target-pill {
-                    padding: 0.4rem 0.8rem;
-                    background: #F1F5F9;
-                    border-radius: 8px;
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    color: #64748B;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                }
-
-                @keyframes pulse {
-                    0% { transform: scale(0.95); opacity: 0.6; }
-                    50% { transform: scale(1.05); opacity: 1; }
-                    100% { transform: scale(0.95); opacity: 0.6; }
-                }
-
-                /* RESPONSIVE MEDIA QUERIES */
-                @media (max-width: 992px) {
-                    .timer-header {
-                        flex-direction: column;
-                        align-items: center;
-                        text-align: center;
-                        gap: 1.5rem;
-                    }
-                    .header-pill {
-                        justify-content: center;
-                    }
-                    .header-stats {
-                        width: 100%;
-                        justify-content: center;
-                    }
-                    .stat-card {
-                        flex: 1;
-                        min-width: unset;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .timer-content-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    .timer-sidebar {
-                        order: 2;
-                    }
-                    .timer-main-card-wrapper {
-                        order: 1;
-                    }
-                    .performance-card {
-                        flex-direction: column;
-                        gap: 1.5rem;
-                    }
-                    .goal-status-divider {
-                        width: 100%;
-                        height: 1px;
-                    }
-                    .goal-status-display {
-                        width: 100%;
-                        min-width: unset;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    .timer-header {
-                        margin-bottom: 2rem;
-                    }
-                    .header-stats {
-                        flex-direction: column;
-                    }
-                    .timer-card {
-                        padding: 3rem 1.5rem;
-                        min-height: auto;
-                    }
-                    .timer-clock {
-                        font-size: 4.5rem;
-                    }
-                    .main-action-btn {
-                        padding: 1rem 1.5rem;
-                        flex: 1;
-                    }
-                    .performance-card {
-                        padding: 1.5rem;
-                    }
-                }
-
-                input::-webkit-outer-spin-button,
-                input::-webkit-inner-spin-button {
-                    -webkit-appearance: none;
-                    margin: 0;
+                    padding: 24px;
+                }
+
+                .page-header { margin-bottom: 32px; }
+                .header-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 800; margin-bottom: 12px; }
+                .page-header h1 { font-size: 2.5rem; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+                .page-header p { color: #64748b; font-size: 1.1rem; }
+
+                .grid-layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+                
+                /* TIMER PANEL */
+                .presets-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+                .preset-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; transition: all 0.2s; position: relative; overflow: hidden; }
+                .preset-card:hover { transform: translateY(-2px); border-color: #cbd5e1; }
+                .preset-card.active { border-color: #4f46e5; background: #eef2ff; }
+                .preset-card.active .icon-box { background: #4f46e5; color: white; }
+                .icon-box { width: 40px; height: 40px; border-radius: 10px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b; transition: all 0.2s; }
+                .text-box h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+                .text-box span { font-size: 0.75rem; color: #64748b; }
+
+                .main-timer-card { background: white; border-radius: 32px; padding: 48px; text-align: center; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 24px; }
+                .timer-header { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 32px; }
+                .mode-badge { background: #f1f5f9; color: #64748b; padding: 6px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; }
+                .live-status { background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; animation: pulse 1.5s infinite; }
+                
+                .timer-display-wrapper { position: relative; width: fit-content; margin: 0 auto 32px auto; min-height: 100px; }
+                .time-display { font-size: 6rem; font-weight: 800; color: #1e293b; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; display: flex; align-items: center; gap: 16px; }
+                .time-display.active { color: #4f46e5; }
+                
+                .edit-icon { opacity: 0; transition: all 0.2s; background: white; border: 1px solid #e2e8f0; cursor: pointer; color: #94a3b8; border-radius: 50%; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: absolute; right: -40px; top: 50%; transform: translateY(-50%); }
+                .timer-display-wrapper:hover .edit-icon { opacity: 1; }
+                .edit-icon:hover { color: #4f46e5; border-color: #4f46e5; }
+
+                .edit-time-box { display: flex; align-items: center; gap: 12px; justify-content: center; }
+                .time-input { font-size: 4rem; font-weight: 800; border: none; border-bottom: 4px solid #4f46e5; width: 220px; text-align: center; outline: none; color: #4f46e5; background: transparent; padding: 0 12px; }
+                .save-time-btn { background: #4f46e5; color: white; width: 48px; height: 48px; border-radius: 50%; border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+                .save-time-btn:hover { transform: scale(1.1); }
+
+                .session-progress { margin-bottom: 40px; max-width: 400px; margin-left: auto; margin-right: auto; }
+                .bar-bg { height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+                .bar-fill { height: 100%; background: #4f46e5; transition: width 1s linear; }
+                .session-visuals { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; font-weight: 600; }
+                
+                .timer-controls { display: flex; align-items: center; justify-content: center; gap: 24px; }
+                .control-btn { border: none; cursor: pointer; transition: all 0.2s; }
+                .control-btn.reset { width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; }
+                .control-btn.reset:hover { background: #e2e8f0; color: #1e293b; }
+                .control-btn.play { height: 64px; padding: 0 48px; border-radius: 99px; background: #1e293b; color: white; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.1rem; }
+                .control-btn.play:hover { transform: scale(1.05); box-shadow: 0 10px 20px -5px rgba(30, 41, 59, 0.4); }
+                .control-btn.play.playing { background: #4f46e5; }
+                .control-btn.play.playing:hover { box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); }
+
+                .expert-tip { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-radius: 20px; padding: 20px; display: flex; gap: 16px; align-items: flex-start; }
+                .tip-icon { background: white; padding: 8px; border-radius: 50%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+                .tip-content h4 { margin: 0 0 4px 0; color: #92400e; font-size: 0.9rem; font-weight: 800; text-transform: uppercase; }
+                .tip-content p { margin: 0; color: #b45309; font-size: 0.95rem; line-height: 1.4; font-weight: 500; }
+
+                /* STATS PANEL */
+                .stats-panel { display: flex; flex-direction: column; gap: 24px; }
+                .daily-progress-card { background: white; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; text-align: center; }
+                .daily-progress-card h3 { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1rem; color: #64748b; margin-bottom: 24px; }
+                .progress-circle { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
+                .progress-value { font-size: 3rem; font-weight: 800; color: #1e293b; line-height: 1; }
+                .progress-label { font-size: 0.9rem; color: #94a3b8; font-weight: 600; }
+                .progress-bar-container { height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+                .progress-bar { height: 100%; background: #4f46e5; border-radius: 99px; transition: width 0.5s ease; }
+                .goal-text { font-size: 0.8rem; color: #64748b; font-weight: 600; }
+
+                .breakdown-card { background: white; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0; }
+                .breakdown-card h3 { font-size: 1rem; color: #64748b; margin-bottom: 16px; }
+                .stats-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+                .stats-list li { display: flex; justify-content: space-between; font-size: 0.95rem; color: #1e293b; font-weight: 500; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+                .stats-list li:last-child { border: none; padding-bottom: 0; }
+                .stat-val { font-weight: 700; color: #4f46e5; }
+
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+                
+                @media (max-width: 900px) {
+                    .grid-layout { grid-template-columns: 1fr; }
+                    .presets-row { overflow-x: auto; padding-bottom: 8px; }
+                    .preset-card { min-width: 140px; }
                 }
             `}</style>
         </AppShell>

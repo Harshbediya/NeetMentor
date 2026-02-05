@@ -15,5 +15,23 @@
         }
       ]
     }
+  },
+  "user_1769976487110": {
+    "tasks": [],
+    "2026-02-05": {
+      "status": "completed",
+      "tasks": [
+        {
+          "name": "network",
+          "subject": "Physics",
+          "type": "Revision",
+          "hours": "1",
+          "status": "Completed",
+          "notes": "",
+          "date": "2026-02-05",
+          "id": 1770240282773
+        }
+      ]
+    }
   }
 }

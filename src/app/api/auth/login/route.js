@@ -22,7 +22,7 @@ export async function POST(request) {
             // Set a simple cookie for "session" persistence
             response.cookies.set("neet_user_id", user.id, {
                 path: "/",
-                httpOnly: false, // Accessible by client for now to keep it simple
+                httpOnly: true, // Secure cookie, server-side only
                 maxAge: 60 * 60 * 24 * 7 // 7 days
             });
 

@@ -22,14 +22,13 @@ export async function GET() {
             return NextResponse.json({ success: false, message: "User not found" }, { status: 404 });
         }
 
-        // Return name, email, and password as requested by user for "real application" feel
+        // Return only: id, name, email. Remove password from response.
         return NextResponse.json({
             success: true,
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email,
-                password: user.password
+                email: user.email
             }
         });
     } catch (error) {

@@ -311,7 +311,7 @@ export default function StudyLogPage() {
                                 <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#166534" }}>DAILY STUDY TIP</span>
                             </div>
                             <p style={{ fontSize: "0.8rem", color: "#166534", margin: 0, lineHeight: 1.5 }}>
-                                "Passive reading is not enough for NEET. Solve at least 10 MCQs immediately after finishing a topic to fix concepts."
+                                &quot;Passive reading is not enough for NEET. Solve at least 10 MCQs immediately after finishing a topic to fix concepts.&quot;
                             </p>
                         </div>
                     </aside>

@@ -1,429 +1,347 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import {
-    BookOpen,
-    ChevronDown,
-    ChevronRight,
-    Target,
-    Search,
-    CheckCircle2,
-    Bookmark,
-    TrendingUp,
-    Info,
-    XCircle
+    Search, ChevronRight, ChevronDown, BookOpen,
+    Target, Zap, Clock, Info, ExternalLink,
+    FileText, Video, Layout, CheckCircle, Circle
 } from "lucide-react";
 
+// Detailed Syllabus Data based on User Request
 const SYLLABUS_DATA = {
-    Physics: [
+    Biology: [
+        // Class 11
         {
-            class: 11,
-            chapter: "Physical World and Measurement",
-            importance: "Medium",
-            topics: ["Units and Measurements", "Dimensional Analysis", "Significant Figures"]
+            id: "B1",
+            name: "Diversity in Living World",
+            class: "Class 11",
+            weight: "MEDIUM",
+            subTopics: ["The Living World", "Biological Classification", "Plant Kingdom", "Animal Kingdom ⚠️"]
         },
         {
-            class: 11,
-            chapter: "Kinematics",
-            importance: "High",
-            topics: ["Motion in a Straight Line", "Motion in a Plane", "Projectile Motion", "Vector Analysis"]
+            id: "B2",
+            name: "Structural Organisation",
+            class: "Class 11",
+            weight: "MEDIUM",
+            subTopics: ["Morphology of Flowering Plants ⚠️", "Anatomy of Flowering Plants ⚠️", "Structural Organisation in Animals"]
         },
         {
-            class: 11,
-            chapter: "Laws of Motion",
-            importance: "High",
-            topics: ["Newton's Laws", "Friction", "Circular Motion", "Dynamics of Uniform Circular Motion"]
+            id: "B3",
+            name: "Cell Structure & Function",
+            class: "Class 11",
+            weight: "HIGH",
+            subTopics: ["Cell: The Unit of Life ⚠️", "Biomolecules ⚠️", "Cell Cycle & Cell Division ⚠️"]
         },
         {
-            class: 11,
-            chapter: "Work, Energy and Power",
-            importance: "High",
-            topics: ["Work Done", "Kinetic and Potential Energy", "Collisions", "Power Calculation"]
+            id: "B4",
+            name: "Plant Physiology ⚠️",
+            class: "Class 11",
+            weight: "VERY HIGH",
+            avgQs: "4",
+            subTopics: ["Photosynthesis", "Respiration in Plants", "Plant Growth Regulators", "Mineral Nutrition", "Transport in Plants"]
         },
         {
-            class: 11,
-            chapter: "Motion of System of Particles and Rigid Body",
-            importance: "Critical",
-            topics: ["Center of Mass", "Torque", "Angular Momentum", "Moment of Inertia"]
+            id: "B5",
+            name: "Human Physiology",
+            class: "Class 11",
+            weight: "HIGH",
+            subTopics: ["Digestion & Absorption", "Breathing & Exchange of Gases", "Body Fluids & Circulation", "Excretory Products", "Neural Control & Coordination", "Chemical Coordination"]
+        },
+        // Class 12
+        {
+            id: "B6",
+            name: "Reproduction",
+            class: "Class 12",
+            weight: "VERY HIGH",
+            avgQs: "3-4",
+            subTopics: ["Reproduction in Organisms", "Sexual Reproduction in Flowering Plants ⚠️", "Human Reproduction ⚠️", "Reproductive Health"]
         },
         {
-            class: 11,
-            chapter: "Gravitation",
-            importance: "Medium",
-            topics: ["Kepler's Laws", "Universal Law of Gravitation", "Gravitational Potential Energy", "Escape Velocity"]
+            id: "B7",
+            name: "Genetics & Evolution",
+            class: "Class 12",
+            weight: "VERY HIGH",
+            avgQs: "4-5",
+            subTopics: ["Principles of Inheritance & Variation ⚠️⚠️", "Molecular Basis of Inheritance ⚠️⚠️", "Evolution"]
         },
         {
-            class: 12,
-            chapter: "Electrostatics",
-            importance: "Critical",
-            topics: ["Electric Charges", "Coulomb's Law", "Electric Field", "Gauss's Theorem", "Capacitors"]
+            id: "B8",
+            name: "Biology in Human Welfare",
+            class: "Class 12",
+            weight: "MEDIUM",
+            subTopics: ["Human Health & Disease ⚠️", "Microbes in Human Welfare"]
         },
         {
-            class: 12,
-            chapter: "Current Electricity",
-            importance: "Critical",
-            topics: ["Ohm's Law", "Kirchhoff's Laws", "Potentiometer", "Wheatstone Bridge"]
+            id: "B9",
+            name: "Biotechnology",
+            class: "Class 12",
+            weight: "HIGH",
+            subTopics: ["Biotechnology Principles & Processes ⚠️", "Biotechnology Applications"]
         },
         {
-            class: 12,
-            chapter: "Magnetic Effects of Current and Magnetism",
-            importance: "High",
-            topics: ["Biot-Savart Law", "Ampere's Law", "Cyclotron", "Magnetic Properties of Materials"]
-        },
-        {
-            class: 12,
-            chapter: "Optics",
-            importance: "Critical",
-            topics: ["Reflection and Refraction", "Lenses", "Optical Instruments", "Wavefronts", "Interference and Diffraction"]
-        },
-        {
-            class: 12,
-            chapter: "Modern Physics",
-            importance: "High",
-            topics: ["Photoelectric Effect", "De Broglie Hypothesis", "Atomic Models", "Radioactivity", "Semiconductors"]
+            id: "B10",
+            name: "Ecology",
+            class: "Class 12",
+            weight: "HIGH",
+            subTopics: ["Organisms & Population", "Ecosystem ⚠️", "Biodiversity & Conservation", "Environmental Issues"]
         }
     ],
     Chemistry: [
+        // Physical
         {
-            class: 11,
-            chapter: "Some Basic Concepts of Chemistry",
-            importance: "High",
-            topics: ["Mole Concept", "Stoichiometry", "Atomic and Molecular Masses", "Empirical Formulas"]
+            id: "C1",
+            name: "Physical Chemistry (Class 11)",
+            class: "Class 11",
+            weight: "HIGH",
+            subTopics: ["Mole Concept ⚠️", "Atomic Structure", "Thermodynamics ⚠️", "Equilibrium ⚠️", "Redox Reactions"]
         },
         {
-            class: 11,
-            chapter: "Structure of Atom",
-            importance: "High",
-            topics: ["Bohr's Model", "Quantum Numbers", "Electronic Configuration", "Photoelectric Effect"]
+            id: "C2",
+            name: "Physical Chemistry (Class 12)",
+            class: "Class 12",
+            weight: "HIGH",
+            subTopics: ["Solutions", "Electrochemistry ⚠️", "Chemical Kinetics ⚠️"]
+        },
+        // Organic
+        {
+            id: "C3",
+            name: "Organic Chemistry (Basics)",
+            class: "Class 11",
+            weight: "VERY HIGH",
+            avgQs: "5-6",
+            subTopics: ["General Organic Chemistry (GOC) ⚠️", "Hydrocarbons"]
         },
         {
-            class: 11,
-            chapter: "Chemical Bonding",
-            importance: "Critical",
-            topics: ["VSEPR Theory", "Hybridization", "Molecular Orbital Theory", "Dipole Moment"]
+            id: "C4",
+            name: "Organic Chemistry (Class 12)",
+            class: "Class 12",
+            weight: "HIGH",
+            subTopics: ["Haloalkanes & Haloarenes", "Alcohols, Phenols, Ethers ⚠️", "Aldehydes & Ketones ⚠️", "Carboxylic Acids", "Amines ⚠️", "Biomolecules, Polymers"]
         },
+        // Inorganic
         {
-            class: 11,
-            chapter: "Thermodynamics",
-            importance: "Medium",
-            topics: ["First Law", "Enthalpy and Entropy", "Gibbs Free Energy", "Spontaneity"]
-        },
-        {
-            class: 11,
-            chapter: "Organic Chemistry: Some Basic Principles",
-            importance: "Critical",
-            topics: ["Isomerism", "IUPAC Nomenclature", "Inductive Effect", "Resonance"]
-        },
-        {
-            class: 12,
-            chapter: "Solutions",
-            importance: "High",
-            topics: ["Raoult's Law", "Colligative Properties", "Van't Hoff Factor", "Solubility"]
-        },
-        {
-            class: 12,
-            chapter: "Electrochemistry",
-            importance: "High",
-            topics: ["Nernst Equation", "Faraday's Laws", "Kohlrausch Law", "Electrolytic Cells"]
-        },
-        {
-            class: 12,
-            chapter: "Chemical Kinetics",
-            importance: "High",
-            topics: ["Rate of Reaction", "Arrhenius Equation", "Order and Molecularity", "Half-life"]
-        },
-        {
-            class: 12,
-            chapter: "Coordination Compounds",
-            importance: "High",
-            topics: ["Werner's Theory", "Ligands", "Crystal Field Theory", "Naming"]
-        },
-        {
-            class: 12,
-            chapter: "Aldehydes, Ketones and Carboxylic Acids",
-            importance: "Critical",
-            topics: ["Named Reactions", "Mechanism of Addition", "Acidity of Alpha Hydrogen", "Oxidation and Reduction"]
+            id: "C5",
+            name: "Inorganic Chemistry",
+            class: "Class 11/12",
+            weight: "HIGH",
+            avgQs: "6",
+            subTopics: ["Periodic Table ⚠️", "Chemical Bonding ⚠️", "Coordination Compounds ⚠️", "p-Block Elements ⚠️", "d-Block & f-Block Elements ⚠️", "s-Block & Hydrogen"]
         }
     ],
-    Biology: [
+    Physics: [
         {
-            class: 11,
-            chapter: "The Living World & Biological Classification",
-            importance: "Medium",
-            topics: ["Taxonomy", "Kingdom Monera", "Kingdom Protista", "Fungi", "Viruses"]
+            id: "P1",
+            name: "Mechanics I",
+            class: "Class 11",
+            weight: "MEDIUM",
+            subTopics: ["Units & Measurements", "Laws of Motion ⚠️", "Work, Energy & Power ⚠️"]
         },
         {
-            class: 11,
-            chapter: "Plant Kingdom",
-            importance: "High",
-            topics: ["Algae", "Bryophytes", "Pteridophytes", "Gymnosperms", "Angiosperms"]
+            id: "P2",
+            name: "Mechanics II",
+            class: "Class 11",
+            weight: "HIGH",
+            subTopics: ["Rotational Motion ⚠️", "Gravitation"]
         },
         {
-            class: 11,
-            chapter: "Cell: The Unit of Life",
-            importance: "Critical",
-            topics: ["Cell Organelles", "Membrane Structure", "Nucleus", "Chromosomes"]
+            id: "P3",
+            name: "Properties of Matter & Heat",
+            class: "Class 11",
+            weight: "HIGH",
+            subTopics: ["Thermodynamics ⚠️", "Oscillations ⚠️", "Waves ⚠️"]
         },
         {
-            class: 11,
-            chapter: "Cell Cycle and Cell Division",
-            importance: "Critical",
-            topics: ["Mitosis", "Meiosis Stages", "Cell Cycle Control", "Significance"]
+            id: "P4",
+            name: "Electrodynamics",
+            class: "Class 12",
+            weight: "VERY HIGH",
+            avgQs: "3-4",
+            subTopics: ["Electrostatics ⚠️⚠️", "Current Electricity ⚠️⚠️", "Magnetism & Matter", "EMI & AC ⚠️"]
         },
         {
-            class: 11,
-            chapter: "Human Physiology (Digestion to Locomotion)",
-            importance: "Critical",
-            topics: ["Enzymes", "Breathing Mechanism", "Cardiac Cycle", "ECG", "Nephron Function", "Muscle Contraction"]
+            id: "P5",
+            name: "Optics",
+            class: "Class 12",
+            weight: "HIGH",
+            avgQs: "3",
+            subTopics: ["Ray Optics ⚠️⚠️", "Wave Optics"]
         },
         {
-            class: 12,
-            chapter: "Sexual Reproduction in Flowering Plants",
-            importance: "Critical",
-            topics: ["Microsporogenesis", "Megasporogenesis", "Pollination Types", "Double Fertilization", "Embryo Development"]
-        },
-        {
-            class: 12,
-            chapter: "Human Reproduction & Reproductive Health",
-            importance: "High",
-            topics: ["Gametogenesis", "Menstrual Cycle", "Fertilization", "IVF and Contraception"]
-        },
-        {
-            class: 12,
-            chapter: "Genetics (Principles & Molecular Basis)",
-            importance: "Critical",
-            topics: ["Mendelian Laws", "DNA Replication", "Transcription", "Translation", "DNA Fingerprinting"]
-        },
-        {
-            class: 12,
-            chapter: "Biotechnology & Its Applications",
-            importance: "Critical",
-            topics: ["Restriction Enzymes", "PCR", "Gel Electrophoresis", "Bt Cotton", "Gene Therapy"]
-        },
-        {
-            class: 12,
-            chapter: "Ecology and Environment",
-            importance: "High",
-            topics: ["Population Interactions", "Pyramids", "Biodiversity", "Waste Management"]
+            id: "P6",
+            name: "Modern Physics",
+            class: "Class 12",
+            weight: "VERY HIGH",
+            avgQs: "4",
+            subTopics: ["Modern Physics ⚠️⚠️", "Semiconductors"]
         }
     ]
 };
 
-const SUBJECT_COLORS = {
-    Physics: "#3b82f6",
-    Chemistry: "#f97316",
-    Biology: "#10b981"
-};
-
-const IMPORTANCE_COLORS = {
-    Critical: "#ef4444",
-    High: "#f59e0b",
-    Medium: "#6366f1"
-};
-
 export default function SyllabusPage() {
-    const [activeSubject, setActiveSubject] = useState('Physics');
-    const [expandedChapters, setExpandedChapters] = useState({});
-    const [searchTerm, setSearchTerm] = useState("");
-    const [completedTopics, setCompletedTopics] = useState({});
-    const [isMounted, setIsMounted] = useState(false);
+    const [activeTab, setActiveTab] = useState("Biology");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [expandedChapter, setExpandedChapter] = useState(null);
+    const [topicProgress, setTopicProgress] = useState({});
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setIsMounted(true);
-        fetchProgress();
+        setMounted(true);
+        const savedProgress = localStorage.getItem("neet_syllabus_progress");
+        if (savedProgress) {
+            setTopicProgress(JSON.parse(savedProgress));
+        }
     }, []);
 
-    const fetchProgress = async () => {
-        try {
-            const res = await fetch("/api/syllabus");
-            const result = await res.json();
-            if (result.success) setCompletedTopics(result.data || {});
-        } catch (error) {
-            console.error("Failed to fetch syllabus progress", error);
-        }
-    };
-
-    const saveProgressToDB = async (newProgress) => {
-        try {
-            await fetch("/api/syllabus", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ progress: newProgress })
-            });
-        } catch (error) {
-            console.error("Failed to save syllabus progress", error);
-        }
-    };
-
-    const toggleChapter = (subject, chapterId) => {
-        const id = `${subject}-${chapterId}`;
-        setExpandedChapters(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
-    };
-
-    const toggleTopic = async (subject, chapter, topic) => {
-        const id = `${subject}-${chapter}-${topic}`;
-        const newCompletedTopics = {
-            ...completedTopics,
-            [id]: !completedTopics[id]
+    const toggleSubTopic = (chapterId, subTopicName) => {
+        const key = `${chapterId}-${subTopicName}`;
+        const newProgress = {
+            ...topicProgress,
+            [key]: !topicProgress[key]
         };
-        setCompletedTopics(newCompletedTopics);
-        await saveProgressToDB(newCompletedTopics);
+        setTopicProgress(newProgress);
+        localStorage.setItem("neet_syllabus_progress", JSON.stringify(newProgress));
     };
 
-    const calculateProgress = (subject) => {
-        const chapters = SYLLABUS_DATA[subject];
+    const toggleChapterBox = (chapterId) => {
+        if (expandedChapter === chapterId) {
+            setExpandedChapter(null);
+        } else {
+            setExpandedChapter(chapterId);
+        }
+    };
+
+    const filteredChapters = useMemo(() => {
+        return SYLLABUS_DATA[activeTab].filter(item =>
+            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.subTopics.some(st => st.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+    }, [activeTab, searchQuery]);
+
+    const calculateProgress = (chapter) => {
+        const total = chapter.subTopics.length;
+        const completed = chapter.subTopics.filter(st => topicProgress[`${chapter.id}-${st}`]).length;
+        return { completed, total, percent: Math.round((completed / total) * 100) };
+    };
+
+    const overallMastery = useMemo(() => {
         let totalTopics = 0;
-        let doneTopics = 0;
-
-        chapters.forEach(ch => {
-            ch.topics.forEach(t => {
-                totalTopics++;
-                if (completedTopics[`${subject}-${ch.chapter}-${t}`]) doneTopics++;
-            });
+        let completedTopics = 0;
+        SYLLABUS_DATA[activeTab].forEach(chap => {
+            totalTopics += chap.subTopics.length;
+            completedTopics += chap.subTopics.filter(st => topicProgress[`${chap.id}-${st}`]).length;
         });
+        return totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100);
+    }, [activeTab, topicProgress]);
 
-        return {
-            percentage: totalTopics > 0 ? Math.round((doneTopics / totalTopics) * 100) : 0,
-            done: doneTopics,
-            total: totalTopics
-        };
-    };
-
-    const filteredSyllabus = SYLLABUS_DATA[activeSubject].filter(ch =>
-        ch.chapter.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ch.topics.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
-    if (!isMounted) return null;
-
-    const currentProgress = calculateProgress(activeSubject);
+    if (!mounted) return null;
 
     return (
         <AppShell>
-            <div className="syllabus-container">
-                {/* Hero Section */}
-                <div className="syllabus-hero" style={{ background: SUBJECT_COLORS[activeSubject] }}>
-                    <div className="hero-content">
-                        <div className="badge-row">
-                            <span className="class-badge">NEET 2026</span>
-                            <span className="live-badge">Updated Curriculum</span>
-                        </div>
-                        <h1>{activeSubject} Syllabus</h1>
-                        <p>Master the core concepts of {activeSubject} with our detailed breakdown.</p>
+            <div className="syllabus-page">
+                {/* Hero Header */}
+                <div className="hero-section">
+                    <div className="hero-badges">
+                        <span className="badge">NEET 2026</span>
+                        <span className="badge yellow">UPDATED CURRICULUM</span>
+                    </div>
+                    <h1>{activeTab} Syllabus</h1>
+                    <p>Master the core concepts of {activeTab} with our detailed breakdown.</p>
 
-                        <div className="hero-stats">
-                            <div className="stat-item">
-                                <span className="stat-value">{SYLLABUS_DATA[activeSubject].length}</span>
-                                <span className="stat-label">Core Chapters</span>
+                    <div className="hero-stats">
+                        <div className="stat-item">
+                            <span className="stat-val">{SYLLABUS_DATA[activeTab].length}</span>
+                            <span className="stat-lab">UNITS</span>
+                        </div>
+                        <div className="divider"></div>
+                        <div className="stat-item mastery">
+                            <div className="progress-circle">
+                                <span>{overallMastery}%</span>
                             </div>
-                            <div className="stat-divider"></div>
-                            <div className="stat-item">
-                                <div className="progress-circle">
-                                    <svg viewBox="0 0 36 36">
-                                        <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                        <path className="circle" strokeDasharray={`${currentProgress.percentage}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                    </svg>
-                                    <div className="percentage-text">{currentProgress.percentage}%</div>
-                                </div>
-                                <span className="stat-label">Subject Mastery</span>
-                            </div>
+                            <span className="stat-lab">MASTERY</span>
                         </div>
                     </div>
-                    <div className="hero-pill-decoration"></div>
                 </div>
 
-                <div className="content-layout">
-                    {/* Main Content Area */}
-                    <div className="main-content">
-                        {/* Improved Search Bar */}
-                        <div className="search-section">
-                            <div className="search-bar-container">
-                                <Search className="search-icon" size={22} />
-                                <input
-                                    type="text"
-                                    placeholder={`Search in ${activeSubject} (e.g. "Mechanics" or "Mole Concept")...`}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                                {searchTerm && (
-                                    <button
-                                        className="clear-search"
-                                        onClick={() => setSearchTerm("")}
-                                        title="Clear search"
-                                    >
-                                        <XCircle size={20} />
-                                    </button>
-                                )}
-                            </div>
+                <div className="main-layout">
+                    {/* Left Content */}
+                    <div className="content-left">
+                        {/* Search Bar */}
+                        <div className="search-container">
+                            <Search className="search-icon" size={20} />
+                            <input
+                                type="text"
+                                placeholder={`Search in ${activeTab}...`}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
 
-                        {/* Subject Toggle */}
-                        <div className="controls-card">
-                            <div className="subject-tabs">
-                                {Object.keys(SYLLABUS_DATA).map(subject => (
-                                    <button
-                                        key={subject}
-                                        onClick={() => { setActiveSubject(subject); setSearchTerm(""); }}
-                                        className={`subject-tab ${activeSubject === subject ? 'active' : ''}`}
-                                        style={{ '--active-color': SUBJECT_COLORS[subject] }}
-                                    >
-                                        {subject === 'Biology' ? <CheckCircle2 size={18} /> :
-                                            subject === 'Physics' ? <TrendingUp size={18} /> : <Target size={18} />}
-                                        {subject}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Custom Tabs */}
+                        <div className="tab-switcher">
+                            {['Biology', 'Chemistry', 'Physics'].map(tab => (
+                                <button
+                                    key={tab}
+                                    className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                                    onClick={() => setActiveTab(tab)}
+                                >
+                                    {tab === 'Biology' && <Target size={18} />}
+                                    {tab === 'Chemistry' && <Layout size={18} />}
+                                    {tab === 'Physics' && <Zap size={18} />}
+                                    {tab}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Syllabus List */}
+                        {/* Chapters List */}
                         <div className="chapters-list">
-                            {filteredSyllabus.map((ch, index) => {
-                                const isOpen = expandedChapters[`${activeSubject}-${ch.chapter}`];
-                                const chCompletedTopics = ch.topics.filter(t => completedTopics[`${activeSubject}-${ch.chapter}-${t}`]).length;
-                                const isFullyDone = chCompletedTopics === ch.topics.length;
+                            {filteredChapters.map((chapter) => {
+                                const progress = calculateProgress(chapter);
+                                const isExpanded = expandedChapter === chapter.id;
 
                                 return (
-                                    <div key={index} className={`chapter-card ${isOpen ? 'open' : ''} ${isFullyDone ? 'fully-done' : ''}`}>
-                                        <div className="chapter-header" onClick={() => toggleChapter(activeSubject, ch.chapter)}>
+                                    <div key={chapter.id} className={`chapter-item ${isExpanded ? 'expanded' : ''}`}>
+                                        <div className="chapter-header" onClick={() => toggleChapterBox(chapter.id)}>
                                             <div className="chapter-info">
-                                                <div className="class-indicator">Class {ch.class}</div>
-                                                <div className="importance-pill" style={{ background: IMPORTANCE_COLORS[ch.importance] }}>
-                                                    {ch.importance}
+                                                <div className="chapter-meta">
+                                                    <span className="class-label">{chapter.class}</span>
+                                                    <span className={`weight-badge ${chapter.weight.replace(' ', '-').toLowerCase()}`}>
+                                                        {chapter.weight} WEIGHTAGE
+                                                    </span>
+                                                    {chapter.avgQs && (
+                                                        <span className="avg-qs-badge">
+                                                            Avg {chapter.avgQs} Qs
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <h3 className="chapter-title">{ch.chapter}</h3>
-                                                <div className="topic-count">
-                                                    {chCompletedTopics}/{ch.topics.length} topics finished
+                                                <h3>{chapter.name}</h3>
+                                                <div className="mini-progress">
+                                                    <div className="bar-bg">
+                                                        <div className="bar-fill" style={{ width: `${progress.percent}%` }}></div>
+                                                    </div>
+                                                    <span>{progress.completed}/{progress.total} topics</span>
                                                 </div>
                                             </div>
-                                            <div className="header-actions">
-                                                {isFullyDone && <CheckCircle2 size={22} className="success-check" />}
-                                                {isOpen ? <ChevronDown size={24} /> : <ChevronRight size={24} />}
-                                            </div>
+                                            {isExpanded ? <ChevronDown className="arrow" /> : <ChevronRight className="arrow" />}
                                         </div>
 
-                                        {isOpen && (
-                                            <div className="chapter-body">
-                                                <div className="topics-grid">
-                                                    {ch.topics.map((topic, tIndex) => {
-                                                        const isTopicDone = completedTopics[`${activeSubject}-${ch.chapter}-${topic}`];
-                                                        return (
-                                                            <div
-                                                                key={tIndex}
-                                                                className={`topic-item ${isTopicDone ? 'done' : ''}`}
-                                                                onClick={() => toggleTopic(activeSubject, ch.chapter, topic)}
-                                                            >
-                                                                <div className="topic-checkbox">
-                                                                    {isTopicDone && <CheckCircle2 size={14} />}
-                                                                </div>
-                                                                <span className="topic-name">{topic}</span>
+                                        {isExpanded && (
+                                            <div className="sub-topics-list">
+                                                {chapter.subTopics.map((subTopic) => {
+                                                    const isChecked = !!topicProgress[`${chapter.id}-${subTopic}`];
+                                                    return (
+                                                        <div
+                                                            key={subTopic}
+                                                            className={`sub-topic-item ${isChecked ? 'done' : ''}`}
+                                                            onClick={() => toggleSubTopic(chapter.id, subTopic)}
+                                                        >
+                                                            <div className="check-circle">
+                                                                {isChecked ? <CheckCircle size={18} className="checked-icon" /> : <Circle size={18} />}
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                            <span>{subTopic}</span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -432,240 +350,488 @@ export default function SyllabusPage() {
                         </div>
                     </div>
 
-                    {/* Sidebar / Info */}
-                    <div className="sidebar-content">
-                        <div className="card guide-card">
-                            <h3 className="card-title"><Info size={20} /> Study Guide</h3>
-                            <div className="guide-points">
-                                <div className="guide-point">
-                                    <div className="point-icon critical"></div>
-                                    <div className="point-text">
-                                        <strong>Critical Chapters</strong>
-                                        <p>High weightage (8-10 Qs). Master these first.</p>
-                                    </div>
+                    {/* Right Sidebar */}
+                    <aside className="content-right">
+                        <div className="sidebar-card">
+                            <div className="card-header">
+                                <Info size={20} />
+                                <h3>Study Guide</h3>
+                            </div>
+                            <div className="guide-item">
+                                <span className="emoji">⚠️</span>
+                                <div>
+                                    <p className="guide-title">Important Topics</p>
+                                    <p className="guide-desc">Focus heavily on topics marked with ⚠️. These are high yield.</p>
                                 </div>
-                                <div className="guide-point">
-                                    <div className="point-icon high"></div>
-                                    <div className="point-text">
-                                        <strong>High Priority</strong>
-                                        <p>Important for conceptual depth (5-7 Qs).</p>
-                                    </div>
-                                </div>
-                                <div className="guide-point">
-                                    <div className="point-icon medium"></div>
-                                    <div className="point-text">
-                                        <strong>Concept Builders</strong>
-                                        <p>Essential basics for building speed.</p>
-                                    </div>
+                            </div>
+                            <div className="guide-item">
+                                <span className="emoji">⚠️⚠️</span>
+                                <div>
+                                    <p className="guide-title">Critical Topics</p>
+                                    <p className="guide-desc">Do NOT skip these. They carry maximum marks.</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="card bookmark-card">
-                            <h3 className="card-title"><Bookmark size={20} /> Quick Prep Links</h3>
-                            <ul className="prep-links">
-                                <li>
-                                    <a href="https://ncert.nic.in/textbook.php" target="_blank" rel="noopener noreferrer">
-                                        NCERT Textbook Solutions
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="/pdfs/NEET_High_Weightage_Chart_2026.pdf" target="_blank" rel="noopener noreferrer">
-                                        High Weightage Analysis
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://www.vedantu.com/formula/physics-formulas" target="_blank" rel="noopener noreferrer">
-                                        Revision Formula Sheets
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://www.nta.ac.in/Quiz" target="_blank" rel="noopener noreferrer">
-                                        NTA Mock Test Pattern
-                                    </a>
-                                </li>
-                            </ul>
+                        <div className="sidebar-card">
+                            <div className="card-header">
+                                <BookOpen size={20} />
+                                <h3>Quick Prep Links</h3>
+                            </div>
+                            <div className="prep-links">
+                                <a href="#" className="prep-link"><Video size={16} /> One Shot Lectures</a>
+                                <a href="#" className="prep-link"><FileText size={16} /> Revision Notes</a>
+                                <a href="#" className="prep-link"><ExternalLink size={16} /> Previous Year Questions</a>
+                            </div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
             </div>
 
             <style jsx>{`
-                .syllabus-container {
-                    padding: 0;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.5rem;
+                .syllabus-page {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 20px;
                 }
 
                 /* Hero Section */
-                .syllabus-hero {
-                    margin-top: -1rem;
-                    padding: 3rem 2rem;
-                    border-radius: 20px;
+                .hero-section {
+                    background: ${activeTab === 'Physics' ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)' :
+                    activeTab === 'Chemistry' ? 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' :
+                        'linear-gradient(135deg, #10B981 0%, #059669 100%)' // Biology
+                };
+                    border-radius: 24px;
+                    padding: 48px;
                     color: white;
+                    margin-bottom: 32px;
                     position: relative;
                     overflow: hidden;
-                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+                    transition: background 0.5s ease;
                 }
-                .hero-content { position: relative; z-index: 2; max-width: 800px; }
-                .hero-content h1 { font-size: 3rem; font-weight: 800; margin: 0.5rem 0; letter-spacing: -0.02em; }
-                .hero-content p { font-size: 1.1rem; opacity: 0.9; margin-bottom: 2rem; }
-                
-                .badge-row { display: flex; gap: 0.75rem; align-items: center; }
-                .class-badge { background: rgba(255,255,255,0.2); padding: 0.4rem 0.8rem; border-radius: 8px; font-weight: 700; font-size: 0.8rem; }
-                .live-badge { background: #facc15; color: #854d0e; padding: 0.4rem 0.8rem; border-radius: 8px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
 
-                .hero-stats { display: flex; align-items: center; gap: 2rem; }
-                .stat-item { display: flex; flex-direction: column; }
-                .stat-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.3); }
-                .stat-value { font-size: 2.5rem; font-weight: 800; line-height: 1; }
-                .stat-label { font-size: 0.85rem; opacity: 0.8; font-weight: 600; text-transform: uppercase; margin-top: 0.5rem; }
+                .hero-badges {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 24px;
+                }
 
-                .progress-circle { position: relative; width: 60px; height: 60px; }
-                .progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-                .circle-bg { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 3.8; }
-                .circle { fill: none; stroke: white; stroke-width: 3.8; stroke-linecap: round; transition: stroke-dasharray 0.5s; }
-                .percentage-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
+                .badge {
+                    background: rgba(255, 255, 255, 0.2);
+                    padding: 6px 16px;
+                    border-radius: 999px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
+                }
 
-                /* Layout */
-                .content-layout { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
-                @media (max-width: 1100px) { .content-layout { grid-template-columns: 1fr; } }
+                .badge.yellow {
+                    background: #FACC15;
+                    color: #854D0E;
+                }
 
-                /* Controls */
-                .search-section { margin-bottom: 1rem; }
-                .search-bar-container {
-                    position: relative;
-                    background: white;
-                    border-radius: 14px;
-                    border: 1px solid #e2e8f0;
-                    padding: 0.25rem 0.25rem 0.25rem 0.25rem;
+                .hero-section h1 {
+                    font-size: 3rem;
+                    font-weight: 800;
+                    margin-bottom: 16px;
+                    color: white;
+                }
+
+                .hero-section p {
+                    font-size: 1.1rem;
+                    opacity: 0.9;
+                    margin-bottom: 40px;
+                    max-width: 600px;
+                }
+
+                .hero-stats {
                     display: flex;
                     align-items: center;
-                    box-shadow: var(--shadow-sm);
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    gap: 48px;
+                    flex-wrap: wrap;
                 }
-                .search-bar-container:focus-within {
-                    border-color: var(--color-primary);
-                    box-shadow: 0 0 0 4px var(--color-primary-light);
-                    transform: translateY(-1px);
+
+                .stat-item {
+                    display: flex;
+                    flex-direction: column;
                 }
-                .search-icon { 
-                    margin-left: 1rem; 
-                    color: #94a3b8;
-                    transition: color 0.3s;
+
+                .stat-val {
+                    font-size: 2.5rem;
+                    font-weight: 800;
+                    line-height: 1;
                 }
-                .search-bar-container:focus-within .search-icon { color: var(--color-primary); }
-                
-                .search-bar-container input { 
-                    flex: 1; 
-                    padding: 0.8rem 1rem; 
-                    border: none; 
-                    outline: none; 
-                    font-size: 1rem; 
-                    font-weight: 500;
-                    background: transparent;
+
+                .stat-lab {
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    opacity: 0.8;
+                    margin-top: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
                 }
-                .clear-search {
-                    background: #f1f5f9;
-                    border: none;
-                    color: #94a3b8;
-                    padding: 0.5rem;
-                    margin-right: 0.5rem;
-                    border-radius: 8px;
-                    cursor: pointer;
+
+                .divider {
+                    width: 1px;
+                    height: 40px;
+                    background: rgba(255, 255, 255, 0.3);
+                    display: block;
+                }
+
+                .stat-item.mastery {
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 16px;
+                }
+
+                .progress-circle {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 50%;
+                    border: 4px solid rgba(255, 255, 255, 0.2);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    font-weight: 800;
+                    font-size: 0.9rem;
+                }
+
+                /* Layout */
+                .main-layout {
+                    display: grid;
+                    grid-template-columns: 1fr 320px;
+                    gap: 32px;
+                }
+
+                /* Search container */
+                .search-container {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 16px 24px;
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                    border: 1px solid #E2E8F0;
+                    margin-bottom: 24px;
+                }
+
+                .search-icon {
+                    color: #94A3B8;
+                }
+
+                .search-container input {
+                    border: none;
+                    outline: none;
+                    width: 100%;
+                    font-size: 1rem;
+                    color: #1E293B;
+                }
+
+                /* Tab Switcher */
+                .tab-switcher {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 12px;
+                    margin-bottom: 32px;
+                }
+
+                .tab-btn {
+                    padding: 14px;
+                    border-radius: 14px;
+                    border: 1px solid #E2E8F0;
+                    background: white;
+                    color: #64748B;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    cursor: pointer;
                     transition: all 0.2s;
                 }
-                .clear-search:hover { background: #fee2e2; color: #ef4444; }
 
-                .controls-card { 
-                    background: white; 
-                    padding: 0.75rem; 
-                    border-radius: 14px; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: space-between; 
-                    gap: 2rem; 
-                    border: 1px solid var(--color-border); 
-                    box-shadow: var(--shadow-sm); 
+                .tab-btn.active {
+                    background: ${activeTab === 'Physics' ? '#3B82F6' :
+                    activeTab === 'Chemistry' ? '#F97316' :
+                        '#10B981'
+                };
+                    color: white;
+                    border-color: ${activeTab === 'Physics' ? '#3B82F6' :
+                    activeTab === 'Chemistry' ? '#F97316' :
+                        '#10B981'
+                };
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                 }
-                .subject-tabs { display: flex; gap: 0.5rem; width: 100%; }
-                .subject-tab { 
+
+                /* Chapters List */
+                .chapters-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
+
+                .chapter-item {
+                    background: white;
+                    border: 1px solid #E2E8F0;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    transition: all 0.2s;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                }
+                
+                .chapter-item.expanded {
+                    border-color: ${activeTab === 'Physics' ? '#3B82F6' :
+                    activeTab === 'Chemistry' ? '#F97316' :
+                        '#10B981'
+                };
+                    box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+                }
+
+                .chapter-header {
+                    padding: 20px 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    cursor: pointer;
+                }
+
+                .chapter-header:hover {
+                    background: #F8FAFC;
+                }
+                
+                .chapter-info {
                     flex: 1;
-                    display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem;
-                    border: none; background: #f8fafc; border-radius: 10px; font-weight: 700; color: #64748b;
-                    transition: all 0.2s; cursor: pointer;
                 }
-                .subject-tab.active { background: var(--active-color); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px -2px rgba(0,0,0,0.1); }
-                
-                /* Chapter Cards */
-                .chapters-list { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
-                .chapter-card { 
-                    background: white; border-radius: 16px; border: 1px solid var(--color-border); 
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-                .chapter-card.fully-done { border-color: #10b981; }
-                .chapter-header { padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; position: relative; }
-                .chapter-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-                
-                .class-indicator { background: #f1f5f9; color: #475569; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 800; }
-                .importance-pill { padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 800; color: white; text-transform: uppercase; letter-spacing: 0.05em; }
-                .chapter-title { margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--color-text-main); }
-                .topic-count { font-size: 0.85rem; color: #94a3b8; font-weight: 600; }
-                
-                .success-check { color: #10b981; margin-right: 0.5rem; }
-                .header-actions { display: flex; align-items: center; color: #94a3b8; }
 
-                .chapter-body { padding: 0 1.5rem 1.5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; }
-                .topics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; padding-top: 1.5rem; }
-                .topic-item { 
-                    display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
-                    background: white; border-radius: 10px; border: 1px solid #e2e8f0;
-                    cursor: pointer; transition: all 0.2s;
+                .chapter-meta {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 6px;
+                    flex-wrap: wrap;
                 }
-                .topic-item:hover { transform: translateX(5px); border-color: var(--color-primary); }
-                .topic-item.done { background: #f0fdf4; border-color: #dcfce7; }
-                .topic-item.done .topic-name { text-decoration: line-through; color: #94a3b8; }
+
+                .class-label {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: #94A3B8;
+                    text-transform: uppercase;
+                }
+
+                .weight-badge {
+                    font-size: 0.65rem;
+                    font-weight: 800;
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                    text-align: center;
+                    color: white;
+                    text-transform: uppercase;
+                }
+
+                .weight-badge.very-high { background: #DC2626; }
+                .weight-badge.high { background: #F97316; }
+                .weight-badge.medium { background: #8B5CF6; }
                 
-                .topic-checkbox { width: 18px; height: 18px; border: 2px solid #e2e8f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
-                .topic-item.done .topic-checkbox { background: #10b981; border-color: #10b981; color: white; }
-                .topic-name { font-size: 0.9rem; font-weight: 600; color: #334155; }
+                .avg-qs-badge {
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    color: #059669;
+                    background: #D1FAE5;
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                }
+
+                .chapter-info h3 {
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                    color: #1E293B;
+                    margin-bottom: 8px;
+                }
+                
+                .mini-progress {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    font-size: 0.8rem;
+                    color: #64748B;
+                    font-weight: 600;
+                }
+                
+                .bar-bg {
+                    width: 100px;
+                    height: 6px;
+                    background: #E2E8F0;
+                    border-radius: 99px;
+                    overflow: hidden;
+                }
+                
+                .bar-fill {
+                    height: 100%;
+                    background: ${activeTab === 'Physics' ? '#3B82F6' :
+                    activeTab === 'Chemistry' ? '#F97316' :
+                        '#10B981'
+                };
+                    transition: width 0.3s ease;
+                }
+
+                .arrow {
+                    color: #94A3B8;
+                    margin-left: 16px;
+                }
+
+                /* Sub Topics */
+                .sub-topics-list {
+                    background: #F8FAFC;
+                    border-top: 1px solid #E2E8F0;
+                    padding: 12px 24px 24px;
+                }
+
+                .sub-topic-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 12px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    color: #475569;
+                    font-weight: 500;
+                }
+
+                .sub-topic-item:hover {
+                    background: white;
+                    color: #1E293B;
+                }
+
+                .sub-topic-item.done {
+                    color: #10B981;
+                    text-decoration: line-through;
+                    opacity: 0.8;
+                }
+
+                .check-circle {
+                    color: #CBD5E1;
+                    display: flex;
+                    align-items: center;
+                }
+
+                .sub-topic-item:hover .check-circle {
+                    color: #94A3B8;
+                }
+
+                .checked-icon {
+                    color: #10B981;
+                }
 
                 /* Sidebar */
-                .sidebar-content { display: flex; flex-direction: column; gap: 1.5rem; }
-                .card-title { display: flex; align-items: center; gap: 0.6rem; font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; }
-                
-                .guide-points { display: flex; flex-direction: column; gap: 1.25rem; }
-                .guide-point { display: flex; gap: 1rem; }
-                .point-icon { width: 12px; height: 12px; border-radius: 3px; margin-top: 4px; flex-shrink: 0; }
-                .point-icon.critical { background: #ef4444; }
-                .point-icon.high { background: #f59e0b; }
-                .point-icon.medium { background: #6366f1; }
-                .point-text strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
-                .point-text p { font-size: 0.8rem; color: #94a3b8; margin: 0; }
+                .content-right {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 24px;
+                }
 
-                .prep-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-                .prep-links li { 
-                    border-radius: 8px; border: 1px solid #e2e8f0; 
-                    background: #f8fafc; transition: all 0.2s;
+                .sidebar-card {
+                    background: white;
+                    border: 1px solid #E2E8F0;
+                    border-radius: 20px;
+                    padding: 24px;
                 }
-                .prep-links li a { 
-                    display: block; padding: 0.85rem 1rem; 
-                    text-decoration: none; color: #475569; 
-                    font-weight: 700; font-size: 0.85rem; 
+
+                .card-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 24px;
+                    color: #1E293B;
                 }
-                .prep-links li:hover { background: var(--color-primary-light); border-color: var(--color-primary); transform: translateX(5px); }
-                .prep-links li:hover a { color: var(--color-primary); }
+
+                .card-header h3 {
+                    font-size: 1.1rem;
+                    font-weight: 800;
+                }
+
+                .guide-item {
+                    display: flex;
+                    gap: 16px;
+                    margin-bottom: 20px;
+                }
+                
+                .emoji {
+                    font-size: 1.2rem;
+                }
+
+                .guide-title {
+                    font-size: 0.95rem;
+                    font-weight: 800;
+                    color: #1E293B;
+                    margin-bottom: 4px;
+                }
+
+                .guide-desc {
+                    font-size: 0.85rem;
+                    color: #64748B;
+                    line-height: 1.4;
+                }
+
+                .prep-links {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
+
+                .prep-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: #475569;
+                    text-decoration: none;
+                }
+
+                .prep-link:hover {
+                    color: #3B82F6;
+                }
+
+                @media (max-width: 1024px) {
+                    .main-layout {
+                        grid-template-columns: 1fr;
+                    }
+                }
 
                 @media (max-width: 640px) {
-                    .controls-card { flex-direction: column; align-items: stretch; gap: 1rem; }
-                    .subject-tabs { overflow-x: auto; padding-bottom: 0.5rem; }
-                    .hero-content h1 { font-size: 2rem; }
-                    .hero-stats { gap: 1rem; }
-                    .stat-value { font-size: 1.5rem; }
+                    .hero-section {
+                        padding: 32px 24px;
+                    }
+
+                    .hero-section h1 {
+                        font-size: 2rem;
+                    }
+
+                    .hero-stats {
+                        gap: 24px;
+                    }
+
+                    .divider {
+                        display: none;
+                    }
+
+                    .stat-item {
+                        padding-right: 20px;
+                        border-right: 1px solid rgba(255,255,255,0.2);
+                        margin-right: 20px;
+                    }
+
+                    .stat-item:last-child {
+                        border-right: none;
+                        margin-right: 0;
+                        padding-right: 0;
+                    }
+
+                    .tab-switcher {
+                        grid-template-columns: 1fr;
+                    }
                 }
             `}</style>
         </AppShell>

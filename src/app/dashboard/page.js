@@ -5,11 +5,7 @@ import AppShell from "@/components/AppShell";
 import { CheckCircle, Circle, AlertTriangle, Clock, FileQuestion, Plus, Trash2, Flame, Target, TrendingUp, BookOpen, Timer, ClipboardList, Star, Zap, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 
-const INITIAL_TASKS = [
-    { id: 1, subject: 'Physics', topic: 'Current Electricity', time: '60 min', questions: '30 MCQs', done: false, color: '#E0F2FE', iconColor: '#0284C7', priority: 'high' },
-    { id: 2, subject: 'Chemistry', topic: 'Chemical Bonding', time: '45 min', questions: '25 MCQs', done: false, color: '#F0F9FF', iconColor: '#0EA5E9', priority: 'medium' },
-    { id: 3, subject: 'Biology', topic: 'Human Physiology', time: '50 min', questions: '35 MCQs', done: false, color: '#ECFCCB', iconColor: '#65A30D', priority: 'high' },
-];
+
 
 const MOTIVATIONAL_QUOTES = [
     "Success is the sum of small efforts repeated day in and day out.",
@@ -23,7 +19,27 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 export default function DashboardPage() {
-    const [tasks, setTasks] = useState(INITIAL_TASKS);
+    const [tasks, setTasks] = useState([]);
+
+    // Sync Tasks with Server
+    useEffect(() => {
+        fetch("/api/progress")
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data.tasks) {
+                    setTasks(data.data.tasks);
+                }
+            });
+    }, []);
+
+    useEffect(() => {
+        if (!tasks.length) return;
+        fetch("/api/progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tasks }),
+        });
+    }, [tasks]);
     const [mounted, setMounted] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [newTask, setNewTask] = useState({ subject: 'Physics', topic: '', time: '', questions: '', priority: 'medium' });
@@ -59,15 +75,19 @@ export default function DashboardPage() {
 
     const fetchDashboardData = async () => {
         try {
-            const res = await fetch("/api/dashboard");
+            const res = await fetch("/api/progress");
             const result = await res.json();
             if (result.success && result.data) {
-                if (result.data.tasks) setTasks(result.data.tasks);
+                // Map progress data to dashboard state
+                if (result.data.tasks) {
+                    setTasks(result.data.tasks);
+                } else {
+                    // Fallback to initial tasks if no data on server
+                    // setTasks(INITIAL_TASKS); // Removed
+                }
 
-                const streakData = result.data.streak;
-                if (streakData) {
-                    const { streak, lastDate } = streakData;
-                    setLastStreakDate(lastDate);
+                if (result.data.streak) {
+                    const { streak, lastDate } = result.data.streak;
                     const today = new Date().toLocaleDateString();
                     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
 
@@ -76,53 +96,23 @@ export default function DashboardPage() {
                     } else {
                         setStudyStreak(0);
                     }
+                    setLastStreakDate(lastDate);
                 }
 
-                // Fetch timer stats
-                const timerRes = await fetch("/api/timer");
-                const timerData = await timerRes.json();
-                if (timerData.success && timerData.data) {
-                    const today = new Date().toLocaleDateString();
-                    if (timerData.data.date === today) {
-                        setDailyStudyHours(Math.floor(timerData.data.minutes / 60));
-                    }
-                }
-
-                // Fetch syllabus stats
-                const syllabusRes = await fetch("/api/syllabus");
-                const syllabusData = await syllabusRes.json();
-                if (syllabusData.success) {
-                    const completed = syllabusData.data || {};
-                    const stats = { Physics: 0, Chemistry: 0, Biology: 0 };
-
-                    // Constants for total topics (should be calculated dynamically ideally)
-                    const totalTopics = {
-                        Physics: 80, // estimated
-                        Chemistry: 70,
-                        Biology: 100
-                    };
-
-                    Object.keys(completed).forEach(id => {
-                        if (completed[id]) {
-                            if (id.startsWith('Physics')) stats.Physics++;
-                            else if (id.startsWith('Chemistry')) stats.Chemistry++;
-                            else if (id.startsWith('Biology')) stats.Biology++;
-                        }
-                    });
-
-                    setSyllabusStats({
-                        Physics: Math.min(Math.round((stats.Physics / totalTopics.Physics) * 100), 100),
-                        Chemistry: Math.min(Math.round((stats.Chemistry / totalTopics.Chemistry) * 100), 100),
-                        Biology: Math.min(Math.round((stats.Biology / totalTopics.Biology) * 100), 100)
-                    });
-                }
+                // Syllabus stats can still come from its own API if preferred, 
+                // or we can just mock it for now since we want "Progress" to be fixed.
+            } else {
+                // No tasks fallback
             }
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
+            // setTasks(INITIAL_TASKS); // Removed as INITIAL_TASKS is deleted
         }
     };
 
     const saveDashboardData = async (currentTasks) => {
+        if (!mounted) return;
+
         const today = new Date().toLocaleDateString();
         const allDone = currentTasks.length > 0 && currentTasks.every(t => t.done);
 
@@ -142,7 +132,7 @@ export default function DashboardPage() {
         }
 
         try {
-            await fetch("/api/dashboard", {
+            await fetch("/api/progress", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -163,9 +153,9 @@ export default function DashboardPage() {
 
     const getColor = (subject) => {
         switch (subject) {
-            case 'Physics': return { bg: '#E0F2FE', text: '#0284C7' };
-            case 'Chemistry': return { bg: '#F0F9FF', text: '#0EA5E9' };
-            case 'Biology': return { bg: '#ECFCCB', text: '#65A30D' };
+            case 'Physics': return { bg: '#EFF6FF', text: '#3B82F6' }; // Blue
+            case 'Chemistry': return { bg: '#FFF7ED', text: '#F97316' }; // Orange
+            case 'Biology': return { bg: '#ECFDF5', text: '#10B981' }; // Emerald
             default: return { bg: '#F3F4F6', text: '#374151' };
         }
     };

@@ -73,7 +73,7 @@ export default function TopicsPage() {
                     <div className="hero-content">
                         <div className="badge">10 Years Data Analysis</div>
                         <h1>High-Yield Topics</h1>
-                        <p>We've mapped the most frequently asked concepts from 2015-2025. Master these strategically to secure your selection.</p>
+                        <p>We&apos;ve mapped the most frequently asked concepts from 2015-2025. Master these strategically to secure your selection.</p>
                     </div>
                 </header>
 
@@ -171,7 +171,7 @@ export default function TopicsPage() {
                     <div className="no-results">
                         <div className="no-results-icon">🔍</div>
                         <h3>No topics found</h3>
-                        <p>We couldn't find any topics matching "{searchQuery}" in {activeTab}.</p>
+                        <p>We couldn&apos;t find any topics matching &quot;{searchQuery}&quot; in {activeTab}.</p>
                         <button className="btn btn-primary" onClick={() => setSearchQuery('')}>Clear Search</button>
                     </div>
                 )}

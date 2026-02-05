@@ -30,7 +30,10 @@ export async function GET() {
         const allProgress = await getProgressData();
         const userProgress = allProgress[userId] || {};
 
-        return NextResponse.json({ success: true, data: userProgress });
+        return NextResponse.json({
+            success: true,
+            data: userProgress
+        });
     } catch (error) {
         return NextResponse.json({ success: false, message: "Server error" }, { status: 500 });
     }
@@ -45,10 +48,23 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
         }
 
-        const { tasksData } = await request.json();
+        const body = await request.json();
         const allProgress = await getProgressData();
 
-        allProgress[userId] = tasksData;
+        // Update tasks strictly as requested
+        if (body.tasks) {
+            // Preserving other data if possible, but ensuring tasks are set
+            allProgress[userId] = { ...allProgress[userId], tasks: body.tasks };
+        }
+
+        // Merge planner data (tasksData) if present
+        if (body.tasksData) {
+            allProgress[userId] = {
+                ...allProgress[userId],
+                ...body.tasksData
+            };
+        }
+
         await saveProgressData(allProgress);
 
         return NextResponse.json({ success: true });

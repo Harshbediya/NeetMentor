@@ -368,7 +368,7 @@ export default function CalendarSystem() {
                                     <div className={`bar ${tasksData[d].status || 'none'}`} style={{ height: '100%' }}></div>
                                 </div>
                                 <span className="hour-stat">
-                                    {tasksData[d].tasks.reduce((acc, t) => acc + parseFloat(t.hours || 0), 0)}h
+                                    {(tasksData[d]?.tasks || []).reduce((acc, t) => acc + parseFloat(t.hours || 0), 0).toFixed(1)}h
                                 </span>
                             </div>
                         ))}

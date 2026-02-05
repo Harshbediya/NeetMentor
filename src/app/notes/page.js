@@ -3,1011 +3,490 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import {
-    Plus, Trash2, StickyNote, Tag, Calendar,
-    Search, Pin, Edit3, MoreVertical,
-    Book, Filter, Download, Zap, BookOpen, X
+    Plus, Trash2, Search, Zap,
+    BookOpen, Edit2, Pin, RotateCcw,
+    Download, FileText, Layout, X
 } from "lucide-react";
-
-const SUBJECT_COLORS = {
-    Physics: { bg: 'var(--color-primary-light)', text: 'var(--color-primary)', border: 'var(--color-primary)' },
-    Chemistry: { bg: '#F0F9FF', text: '#0EA5E9', border: '#0EA5E9' },
-    Biology: { bg: '#ECFCCB', text: '#65A30D', border: '#65A30D' },
-    Other: { bg: '#F4F4F5', text: '#71717A', border: '#D4D4D8' }
-};
 
 export default function NotesPage() {
     const [notes, setNotes] = useState([]);
     const [mounted, setMounted] = useState(false);
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterSubject, setFilterSubject] = useState('All');
+    const [searchQuery, setSearchQuery] = useState("");
+    const [activeFilter, setActiveFilter] = useState("All");
 
-    // State for Reading Mode
-    const [activeNote, setActiveNote] = useState(null);
-    const [readingSettings, setReadingSettings] = useState({ fontSize: 18, theme: 'default' });
+    // Modal States
+    const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState(null); // ID of note being edited
+    const [viewingNote, setViewingNote] = useState(null); // Note object for "Read" mode
+    const [revisingNote, setRevisingNote] = useState(null); // Note object for "Revise" mode (Flashcard)
+    const [isFlipped, setIsFlipped] = useState(false); // For flashcard flip animation
 
-    // Form state
-    const [formData, setFormData] = useState({
-        title: '',
-        content: '',
-        subject: 'Physics',
-        isPinned: false
-    });
+    const [newNote, setNewNote] = useState({ title: "", content: "", subject: "Physics", tags: "" });
 
     useEffect(() => {
         setMounted(true);
-        const saved = localStorage.getItem('neet_notes_v3');
-        if (saved) {
-            setNotes(JSON.parse(saved));
-        } else {
-            // Initial high-yield starter kit for NEET
-            setNotes([
-                {
-                    id: 1,
-                    title: 'Butterfly Structure (CrO5)',
-                    content: 'In CrO5, Cr has +6 oxidation state (not +10).\nReason: It has two peroxide bonds (-O-O-).\nStructure: Butterfly shape with 4 peroxide oxygens and 1 carbonyl oxygen.',
-                    subject: 'Chemistry',
-                    isPinned: true,
-                    date: new Date().toLocaleDateString()
-                },
-                {
-                    id: 2,
-                    title: 'Speed of Light Dimensions',
-                    content: 'Expression: 1 / sqrt(μ₀ε₀)\nDimensions: [M⁰ L¹ T⁻¹]\nUnits: m/s\nNote: Frequently asked in Match the Following!',
-                    subject: 'Physics',
-                    isPinned: true,
-                    date: new Date().toLocaleDateString()
-                },
-                {
-                    id: 3,
-                    title: 'Biological Classification (NCERT)',
-                    content: 'R.H. Whittaker (1969) - 5 Kingdom System\n1. Monera (Prokaryotic)\n2. Protista (Unicellular Eukaryotic)\n3. Fungi\n4. Plantae\n5. Animalia\n\nMain criteria: Cell structure, Body organization, Mode of nutrition.',
-                    subject: 'Biology',
-                    isPinned: false,
-                    date: new Date().toLocaleDateString()
-                },
-                {
-                    id: 4,
-                    title: 'Amine Basicity (Aqueous)',
-                    content: 'Order of basicity in water:\n- Ethyl groups: 2° > 3° > 1° > NH₃\n- Methyl groups: 2° > 1° > 3° > NH₃\nTrick: Ethyl is Bulky (231), Methyl is Small (213).',
-                    subject: 'Chemistry',
-                    isPinned: false,
-                    date: new Date().toLocaleDateString()
-                },
-                {
-                    id: 5,
-                    title: 'Logic Gates - Cheat Sheet',
-                    content: 'AND: A.B\nOR: A+B\nNAND: ~(A.B) -> Universal Gate\nNOR: ~(A+B) -> Universal Gate\nXOR: A⊕B (Output 1 only if inputs are different)',
-                    subject: 'Physics',
-                    isPinned: false,
-                    date: new Date().toLocaleDateString()
-                }
-            ]);
+        const savedNotes = localStorage.getItem("neet_notes");
+        if (savedNotes) {
+            try {
+                const parsed = JSON.parse(savedNotes);
+                // Sanitize duplicate IDs
+                const uniqueNotes = [];
+                const seenIds = new Set();
+                parsed.forEach((n, index) => {
+                    let noteId = n.id;
+                    if (!noteId || seenIds.has(noteId)) {
+                        noteId = Date.now() + Math.random() + index;
+                    }
+                    seenIds.add(noteId);
+                    uniqueNotes.push({
+                        ...n,
+                        id: noteId,
+                        subject: n.subject || "General",
+                        date: n.date || new Date().toLocaleDateString('en-GB')
+                    });
+                });
+                setNotes(uniqueNotes);
+            } catch (e) {
+                console.error("Data corrupted, resetting", e);
+                setNotes([]);
+            }
         }
     }, []);
 
     useEffect(() => {
         if (mounted) {
-            localStorage.setItem('neet_notes_v3', JSON.stringify(notes));
+            localStorage.setItem("neet_notes", JSON.stringify(notes));
         }
     }, [notes, mounted]);
 
-    const loadStarterKit = () => {
-        if (confirm('Load pre-made high-yield notes? (Existing notes will remain)')) {
-            const starterKit = [
-                { id: Date.now() + 1, title: 'Unit & Dimensions Trick', content: 'Force (MLT⁻²) and Energy (ML²T⁻²) are the most used.\nSurface Tension = Surface Energy/Area = Force/Length = [MT⁻²]', subject: 'Physics', date: new Date().toLocaleDateString() },
-                { id: Date.now() + 2, title: 'Inorganic exceptions', content: 'Atomic size: B < Ga (Transition contraction)\nIonization Enthalpy: B > Al < Ga (due to 3d electrons)', subject: 'Chemistry', date: new Date().toLocaleDateString() }
-            ];
-            setNotes([...starterKit, ...notes]);
+    // Handle Image Upload
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewNote(prev => ({ ...prev, imageUrl: reader.result }));
+            };
+            reader.readAsDataURL(file);
         }
     };
 
-    const handleSubmit = (e) => {
+    // Create or Update Note
+    const handleSaveNote = (e) => {
         e.preventDefault();
-        if (!formData.title || !formData.content) return;
+        if (!newNote.title.trim()) return;
 
-        const newNote = {
-            ...formData,
-            id: Date.now(),
-            date: new Date().toLocaleDateString()
-        };
-        setNotes([newNote, ...notes]);
-        setFormData({ title: '', content: '', subject: 'Physics', isPinned: false });
-        setIsFormOpen(false);
+        if (editingId) {
+            // Update existing
+            setNotes(notes.map(n =>
+                n.id === editingId ? { ...n, ...newNote } : n
+            ));
+        } else {
+            // Create new
+            const note = {
+                id: Date.now() + Math.random(),
+                ...newNote,
+                date: new Date().toLocaleDateString('en-GB'),
+                isPinned: false
+            };
+            setNotes(prev => [note, ...prev]);
+        }
+
+        // Reset and close
+        setNewNote({ title: "", content: "", subject: "Physics", tags: "" });
+        setEditingId(null);
+        setIsAdding(false);
+    };
+
+    const deleteNote = (id) => {
+        if (confirm("Delete this note?")) {
+            setNotes(notes.filter(n => n.id !== id));
+            if (viewingNote?.id === id) setViewingNote(null);
+            if (revisingNote?.id === id) setRevisingNote(null);
+        }
     };
 
     const togglePin = (id) => {
         setNotes(notes.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n));
     };
 
-    const toggleRevised = (id) => {
-        setNotes(notes.map(n => n.id === id ? { ...n, isRevised: !n.isRevised } : n));
+    // Open Edit Modal
+    const startEditing = (note) => {
+        setNewNote({
+            title: note.title,
+            content: note.content,
+            subject: note.subject,
+            tags: note.tags || ""
+        });
+        setEditingId(note.id);
+        setIsAdding(true);
     };
 
-    const deleteNote = (id) => {
-        if (confirm('Permanently delete this study note?')) {
-            setNotes(notes.filter(n => n.id !== id));
+    // Open Revise Modal (Flashcard)
+    const startRevision = (note) => {
+        setRevisingNote(note);
+        setIsFlipped(false);
+    };
+
+    const loadStarterKit = () => {
+        const timestamp = Date.now();
+        const starterNotes = [
+            {
+                id: timestamp,
+                title: "Butterfly Structure (CrO5)",
+                subject: "Chemistry",
+                content: "In CrO5, Cr has +6 oxidation state (not +10).\nReason: It has two peroxide bonds (-O-O-).\nStructure: Butterfly shape with 4 peroxide oxygens and 1 carbonyl oxygen.",
+                date: "05/02/2026",
+                isPinned: true
+            },
+            {
+                id: timestamp + 1,
+                title: "Speed of Light Dimensions",
+                subject: "Physics",
+                content: "Expression: 1 / sqrt(μ₀ε₀)\nDimensions: [M⁰ L¹ T⁻¹]\nUnits: m/s\nNote: Frequently asked in Match the Following!",
+                date: "05/02/2026",
+                isPinned: false
+            },
+            {
+                id: timestamp + 2,
+                title: "Amine Basicity (Aqueous)",
+                subject: "Chemistry",
+                content: "Order of basicity in water:\n- Ethyl groups: 2° > 3° > 1° > NH₃\n- Methyl groups: 2° > 1° > 3° > NH₃\nTrick: Ethyl is Bulky (231), Methyl is Small (213).",
+                date: "05/02/2026",
+                isPinned: false
+            }
+        ];
+
+        if (confirm("Load sample notes?")) {
+            setNotes(prev => [...starterNotes, ...prev]);
         }
-    };
-
-    const exportNotes = () => {
-        const dataStr = JSON.stringify(notes, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        const exportFileDefaultName = 'neet_mentor_notes.json';
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
     };
 
     if (!mounted) return null;
 
-    const filteredNotes = notes
-        .filter(n => filterSubject === 'All' || n.subject === filterSubject)
-        .filter(n =>
-            n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            n.content.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+    const filteredNotes = notes.filter(n => {
+        const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            n.content.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = activeFilter === "All" || n.subject === activeFilter;
+        return matchesSearch && matchesFilter;
+    }).sort((a, b) => b.isPinned - a.isPinned);
 
     return (
         <AppShell>
-            <div className="notes-container">
-                {/* Header Banner */}
-                <header className="notes-header">
-                    <div className="header-visual">
-                        <StickyNote size={120} />
+            <div className="notes-page">
+                {/* Header */}
+                <div className="vault-header">
+                    <div className="vault-badge">
+                        <Zap size={14} fill="#fbbf24" color="#fbbf24" /> ACTIVE RECALL TOOL
                     </div>
-                    <div className="header-text">
-                        <div className="premium-badge"><Zap size={14} /> ACTIVE RECALL TOOL</div>
-                        <h1>My Study Vault</h1>
-                        <p>Capture short tricks, formulas, and NCERT exceptions. These are your secrets to cracking NEET.</p>
-                    </div>
-                    <div className="header-actions">
-                        <button className="starter-kit-btn" onClick={loadStarterKit} title="Add High-Yield Samples">
-                            <Book size={18} /> Load Starter Kit
-                        </button>
-                        <button className="add-btn" onClick={() => setIsFormOpen(!isFormOpen)}>
-                            <Plus size={20} /> {isFormOpen ? 'Close Editor' : 'Create New Note'}
-                        </button>
-                    </div>
-                </header>
+                    <h1>My Study Vault</h1>
+                    <p>Capture short tricks, formulas, and NCERT exceptions.<br />These are your secrets to cracking NEET.</p>
 
-                <div className="controls-row">
-                    <div className="search-bar">
-                        <div className="search-icon-container">
-                            <Search size={18} />
-                        </div>
+                    <div className="header-actions">
+                        <button className="btn-outline" onClick={loadStarterKit}>
+                            <Layout size={18} /> Load Starter Kit
+                        </button>
+                        <button className="btn-solid" onClick={() => {
+                            setNewNote({ title: "", content: "", subject: "Physics", tags: "" });
+                            setEditingId(null);
+                            setIsAdding(true);
+                        }}>
+                            <Plus size={18} /> Create New Note
+                        </button>
+                    </div>
+                    <div className="vault-icon-bg"><FileText size={180} strokeWidth={1} /></div>
+                </div>
+
+                {/* Filters */}
+                <div className="filter-bar">
+                    <div className="search-wrapper">
+                        <Search className="search-icon" size={20} />
                         <input
                             type="text"
                             placeholder="Find formulas, tricks, topics..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        {searchQuery && (
-                            <button className="clear-search" onClick={() => setSearchQuery('')} aria-label="Clear search">
-                                <X size={16} />
-                            </button>
-                        )}
                     </div>
-
-                    <div className="filters">
-                        {['All', 'Physics', 'Chemistry', 'Biology'].map(sub => (
+                    <div className="filter-chips">
+                        {['All', 'Physics', 'Chemistry', 'Biology'].map(subject => (
                             <button
-                                key={sub}
-                                className={`filter-chip ${filterSubject === sub ? 'active' : ''}`}
-                                onClick={() => setFilterSubject(sub)}
+                                key={subject}
+                                className={`chip ${activeFilter === subject ? 'active' : ''}`}
+                                onClick={() => setActiveFilter(subject)}
                             >
-                                {sub}
+                                {subject}
                             </button>
                         ))}
-                        <button className="export-btn" onClick={exportNotes} title="Backup Notes">
-                            <Download size={18} />
-                        </button>
                     </div>
                 </div>
 
-                {/* Note Creation Form */}
-                {isFormOpen && (
-                    <div className="form-card animate-in">
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-header">
-                                <input
-                                    type="text"
-                                    placeholder="Topic Name (e.g. Modern Physics Shortcuts)"
-                                    value={formData.title}
-                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    required
-                                    className="title-input"
-                                />
-                                <select
-                                    value={formData.subject}
-                                    onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                                    className="subject-select"
-                                >
-                                    <option>Physics</option>
-                                    <option>Chemistry</option>
-                                    <option>Biology</option>
-                                    <option>Other</option>
-                                </select>
-                            </div>
-                            <textarea
-                                placeholder="Paste NCERT exceptions, draw diagrams with text, or list formulas..."
-                                value={formData.content}
-                                onChange={e => setFormData({ ...formData, content: e.target.value })}
-                                required
-                                className="content-textarea"
-                            />
-                            <div className="form-footer">
-                                <label className="pin-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.isPinned}
-                                        onChange={e => setFormData({ ...formData, isPinned: e.target.checked })}
-                                    />
-                                    <Pin size={16} /> Pin to top
-                                </label>
-                                <div className="btn-group">
-                                    <button type="button" className="cancel-btn" onClick={() => setIsFormOpen(false)}>Discard</button>
-                                    <button type="submit" className="save-btn">Save to Vault</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                )}
+                {/* Grid */}
+                <div className="notes-grid">
+                    {filteredNotes.map(note => (
+                        <div key={note.id} className={`note-card ${(note.subject || 'General').toLowerCase()}`}>
+                            {note.isPinned && (
+                                <div className="pinned-badge"><Pin size={12} fill="white" /> PINNED</div>
+                            )}
 
-                {/* Notes Grid */}
-                {filteredNotes.length === 0 ? (
-                    <div className="empty-state">
-                        <Book size={64} className="empty-icon" />
-                        <h2>No matches in your vault</h2>
-                        <p>Try a different keyword or create a new revision note.</p>
-                        <button onClick={() => { setSearchQuery(''); setFilterSubject('All'); }} className="reset-btn">View All Notes</button>
-                    </div>
-                ) : (
-                    <div className="notes-masonry">
-                        {filteredNotes.map((note) => (
-                            <div key={note.id} className={`note-card ${note.isPinned ? 'pinned' : ''} ${note.isRevised ? 'revised' : ''}`}>
-                                {note.isPinned && (
-                                    <div className="pinned-badge"><Pin size={12} fill="currentColor" /> PINNED</div>
-                                )}
-                                <div className="note-meta">
-                                    <div className="meta-left">
-                                        <span className="subject-tag" style={{
-                                            background: SUBJECT_COLORS[note.subject]?.bg || SUBJECT_COLORS.Other.bg,
-                                            color: SUBJECT_COLORS[note.subject]?.text || SUBJECT_COLORS.Other.text
-                                        }}>
-                                            {note.subject}
-                                        </span>
-                                        <span className="note-date">{note.isRevised ? '✅ Revised' : note.date}</span>
-                                    </div>
-                                    <button
-                                        className={`pin-toggle-btn ${note.isPinned ? 'active' : ''}`}
-                                        onClick={() => togglePin(note.id)}
-                                        title={note.isPinned ? "Unpin Note" : "Pin Note"}
-                                    >
-                                        <Pin size={16} fill={note.isPinned ? "currentColor" : "none"} />
-                                    </button>
+                            <div className="card-top">
+                                <div className="meta">
+                                    <span className="subject">{note.subject.toUpperCase()}</span>
+                                    <span className="date">{note.date}</span>
                                 </div>
-
-                                <h3 className="note-title">{note.title}</h3>
-                                <div className="note-body">{note.content}</div>
-
-                                <div className="note-footer">
-                                    <div className="footer-left">
-                                        <button className="delete-note" onClick={() => deleteNote(note.id)} title="Delete">
-                                            <Trash2 size={16} />
-                                        </button>
-                                        <button className={`revise-btn ${note.isRevised ? 'active' : ''}`} onClick={() => toggleRevised(note.id)}>
-                                            <Zap size={14} /> {note.isRevised ? 'Done' : 'Revise'}
-                                        </button>
-                                    </div>
-                                    <div className="footer-right">
-                                        <button className="read-btn" onClick={() => setActiveNote(note)}>
-                                            <BookOpen size={16} /> <span>Read</span>
-                                        </button>
-                                        <button className="edit-note" onClick={() => {
-                                            setFormData(note);
-                                            setIsFormOpen(true);
-                                            setNotes(notes.filter(n => n.id !== note.id));
-                                        }}>
-                                            <Edit3 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Focused Reading Modal */}
-                {activeNote && (
-                    <div className="reading-modal-overlay" onClick={() => setActiveNote(null)}>
-                        <div className="reading-modal-content" onClick={e => e.stopPropagation()} style={{
-                            '--reading-font-size': `${readingSettings.fontSize}px`,
-                            background: readingSettings.theme === 'sepia' ? '#F4ECD8' :
-                                readingSettings.theme === 'focus' ? '#121212' : 'var(--color-surface)',
-                            color: readingSettings.theme === 'sepia' ? '#5B4636' :
-                                readingSettings.theme === 'focus' ? '#E0E0E0' : 'var(--color-text-main)'
-                        }}>
-                            <div className="reading-toolbar">
-                                <div className="toolbar-left">
-                                    <button onClick={() => setReadingSettings(s => ({ ...s, fontSize: Math.max(12, s.fontSize - 2) }))}>A-</button>
-                                    <button onClick={() => setReadingSettings(s => ({ ...s, fontSize: Math.min(32, s.fontSize + 2) }))}>A+</button>
-                                    <div className="theme-pickers">
-                                        <button className="theme-btn default" onClick={() => setReadingSettings(s => ({ ...s, theme: 'default' }))}></button>
-                                        <button className="theme-btn sepia" onClick={() => setReadingSettings(s => ({ ...s, theme: 'sepia' }))}></button>
-                                        <button className="theme-btn focus" onClick={() => setReadingSettings(s => ({ ...s, theme: 'focus' }))}></button>
-                                    </div>
-                                </div>
-                                <button className="close-reading" onClick={() => setActiveNote(null)}><X size={24} /></button>
-                            </div>
-
-                            <div className="reading-area">
-                                <div className="reading-subject">
-                                    <span style={{ border: `1px solid ${SUBJECT_COLORS[activeNote.subject]?.border || '#ccc'}`, color: SUBJECT_COLORS[activeNote.subject]?.text || '#666' }}>
-                                        {activeNote.subject}
-                                    </span>
-                                </div>
-                                <h1 className="reading-title">{activeNote.title}</h1>
-                                <div className="reading-body">
-                                    {activeNote.content}
-                                </div>
-                            </div>
-
-                            <div className="reading-footer">
-                                <button className="mark-revised-btn" onClick={() => { toggleRevised(activeNote.id); setActiveNote(null); }}>
-                                    {activeNote.isRevised ? 'Unmark as Revised' : 'Finished Reading - Mark Revised'}
+                                <button className={`pin-btn ${note.isPinned ? 'active' : ''}`} onClick={() => togglePin(note.id)}>
+                                    <Pin size={16} className={note.isPinned ? "fill-current" : ""} />
                                 </button>
                             </div>
+
+                            <h3>{note.title}</h3>
+                            <div className="content-preview">
+                                {note.content.length > 100 ? note.content.substring(0, 100) + "..." : note.content}
+                            </div>
+
+                            <div className="card-actions">
+                                <button className="action-icon delete" onClick={() => deleteNote(note.id)} title="Delete">
+                                    <Trash2 size={16} />
+                                </button>
+                                <button className="action-pill" onClick={() => startRevision(note)} title="Flashcard Mode">
+                                    <Zap size={14} /> Revise
+                                </button>
+                                <button className="action-pill primary" onClick={() => setViewingNote(note)} title="Focus Read">
+                                    <BookOpen size={14} /> Read
+                                </button>
+                                <button className="action-icon edit" onClick={() => startEditing(note)} title="Edit">
+                                    <Edit2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {filteredNotes.length === 0 && !isAdding && (
+                        <div className="empty-placeholder">
+                            <p>No notes found. Create one or load the starter kit!</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* EDITOR MODAL */}
+                {isAdding && (
+                    <div className="modal-overlay">
+                        <div className="note-form-card">
+                            <div className="modal-header">
+                                <h3>{editingId ? "Edit Note" : "New Flash Note"}</h3>
+                                <button className="close-btn" onClick={() => setIsAdding(false)}><X size={20} /></button>
+                            </div>
+                            <form onSubmit={handleSaveNote}>
+                                <input
+                                    className="input-title"
+                                    placeholder="Title (e.g. Newton's 2nd Law Trick)"
+                                    value={newNote.title}
+                                    onChange={e => setNewNote({ ...newNote, title: e.target.value })}
+                                    autoFocus
+                                    required
+                                />
+                                <div className="row">
+                                    <select
+                                        value={newNote.subject}
+                                        onChange={e => setNewNote({ ...newNote, subject: e.target.value })}
+                                    >
+                                        <option>Physics</option>
+                                        <option>Chemistry</option>
+                                        <option>Biology</option>
+                                    </select>
+                                </div>
+                                <textarea
+                                    placeholder="Write your short trick, formula, or exception here..."
+                                    value={newNote.content}
+                                    onChange={e => setNewNote({ ...newNote, content: e.target.value })}
+                                    rows={8}
+                                />
+
+                                <div className="file-input-wrapper">
+                                    <label className="file-label">
+                                        <span className="file-text">{newNote.imageUrl ? "Change Diagram" : "Add Diagram / Image"}</span>
+                                        <input type="file" accept="image/*" onChange={handleImageUpload} hidden />
+                                    </label>
+                                    {newNote.imageUrl && (
+                                        <div className="image-preview-mini">
+                                            <img src={newNote.imageUrl} alt="Preview" />
+                                            <button type="button" onClick={() => setNewNote({ ...newNote, imageUrl: null })} className="remove-img-btn"><X size={12} /></button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="form-btns">
+                                    <button type="button" className="cancel-btn" onClick={() => setIsAdding(false)}>Cancel</button>
+                                    <button type="submit" className="save-btn">{editingId ? "Update Note" : "Save to Vault"}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* READ MODAL (Focus Mode) */}
+                {viewingNote && (
+                    <div className="modal-overlay">
+                        <div className="read-modal-card">
+                            <div className="modal-header">
+                                <span className={`subject-tag ${viewingNote.subject.toLowerCase()}`}>{viewingNote.subject}</span>
+                                <div className="modal-actions">
+                                    <button onClick={() => { startEditing(viewingNote); setViewingNote(null); }}><Edit2 size={18} /></button>
+                                    <button onClick={() => setViewingNote(null)}><X size={24} /></button>
+                                </div>
+                            </div>
+                            <h2 className="read-title">{viewingNote.title}</h2>
+                            <div className="read-content">
+                                {viewingNote.content.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* REVISE MODAL (Flashcard Mode) */}
+                {revisingNote && (
+                    <div className="modal-overlay">
+                        <div className="flashcard-container">
+                            <div className={`flashcard ${isFlipped ? 'flipped' : ''}`} onClick={() => setIsFlipped(!isFlipped)}>
+                                <div className="card-face front">
+                                    <span className="card-label">QUESTION / TOPIC</span>
+                                    <h3>{revisingNote.title}</h3>
+                                    <p className="tap-hint">Tap to flip <RotateCcw size={14} /></p>
+                                </div>
+                                <div className="card-face back">
+                                    <span className="card-label">ANSWER / NOTES</span>
+                                    <div className="back-content">
+                                        {revisingNote.content.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                                    </div>
+                                </div>
+                            </div>
+                            <button className="close-flashcard" onClick={() => setRevisingNote(null)}>Stop Revision</button>
                         </div>
                     </div>
                 )}
             </div>
 
             <style jsx>{`
-                .notes-container {
+                .notes-page {
                     max-width: 1200px;
                     margin: 0 auto;
-                    padding-bottom: 60px;
+                    padding: 24px;
+                    font-family: var(--font-inter, sans-serif);
                 }
 
-                .notes-header {
-                    background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+                /* Reuse Vault Header & Filter css from before... putting core structure back */
+                .vault-header {
+                    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
                     border-radius: 24px;
                     padding: 48px;
                     color: white;
-                    display: flex;
-                    align-items: center;
-                    gap: 32px;
-                    margin-bottom: 32px;
                     position: relative;
                     overflow: hidden;
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-                }
-
-                .header-visual {
-                    opacity: 0.15;
-                    transform: rotate(-10deg);
-                    flex-shrink: 0;
-                }
-
-                .header-text h1 {
-                    font-size: 2.75rem;
-                    color: white;
-                    margin: 8px 0;
-                    font-weight: 800;
-                    letter-spacing: -0.02em;
-                }
-
-                .header-text p {
-                    font-size: 1.1rem;
-                    opacity: 0.8;
-                    max-width: 500px;
-                    line-height: 1.5;
-                }
-
-                .premium-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    background: rgba(255, 255, 255, 0.1);
-                    padding: 4px 12px;
-                    border-radius: 99px;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    letter-spacing: 0.1em;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                }
-
-                .add-btn {
-                    padding: 14px 24px;
-                    background: white;
-                    color: var(--color-primary);
-                    border: none;
-                    border-radius: 14px;
-                    font-weight: 700;
-                    font-size: 1rem;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: transform 0.2s;
-                }
-
-                .add-btn:hover { transform: scale(1.02); }
-
-                /* Controls */
-                .controls-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
+                    box-shadow: 0 10px 30px -10px rgba(49, 46, 129, 0.4);
                     margin-bottom: 32px;
-                    gap: 20px;
-                    flex-wrap: wrap;
+                }
+                .vault-icon-bg { position: absolute; right: 40px; top: 50%; transform: translateY(-50%) rotate(-10deg); opacity: 0.1; pointer-events: none; }
+                .vault-badge { display: inline-flex;  align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: 800; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.2); }
+                .vault-header h1 { font-size: 3rem; font-weight: 800; margin-bottom: 12px; }
+                .vault-header p { color: #cbd5e1; font-size: 1.1rem; line-height: 1.6; margin-bottom: 32px; max-width: 600px; }
+                .header-actions { display: flex; gap: 16px; position: relative; z-index: 2; }
+
+                .btn-solid { background: white; color: #312e81; padding: 12px 24px; border-radius: 12px; font-weight: 700; border: none; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: transform 0.2s; }
+                .btn-outline { background: transparent; color: white; border: 2px solid rgba(255, 255, 255, 0.3); padding: 12px 24px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
+                .btn-solid:hover, .btn-outline:hover { transform: translateY(-2px); }
+
+                /* Filter Bar */
+                .filter-bar { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+                .search-wrapper { flex: 1; position: relative; min-width: 300px; }
+                .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+                .search-wrapper input { width: 100%; padding: 16px 16px 16px 48px; border-radius: 16px; border: 1px solid #e2e8f0; font-size: 1rem; outline: none; }
+                .filter-chips { display: flex; gap: 12px; }
+                .chip { background: white; border: 1px solid #e2e8f0; padding: 10px 20px; border-radius: 99px; color: #64748b; font-weight: 600; cursor: pointer; }
+                .chip.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+
+                /* Grid */
+                .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
+                .note-card { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; position: relative; transition: transform 0.2s; height: 100%; }
+                .note-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.1); }
+                
+                .note-card.chemistry { border-top: 6px solid #f97316; }
+                .note-card.physics { border-top: 6px solid #3b82f6; }
+                .note-card.biology { border-top: 6px solid #10b981; }
+                .note-card.general { border-top: 6px solid #64748b; } /* General Fallback */
+
+                .card-top { display: flex; justify-content: space-between; margin-bottom: 16px; }
+                .meta { display: flex; gap: 12px; align-items: center; }
+                .subject { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em; color: #64748b; }
+                .note-card.chemistry .subject { color: #f97316; }
+                .note-card.physics .subject { color: #3b82f6; }
+                .note-card.biology .subject { color: #10b981; }
+
+                .pinned-badge { position: absolute; top: -12px; left: 24px; background: #4f46e5; color: white; font-size: 0.65rem; font-weight: 800; padding: 4px 12px; border-radius: 99px; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3); }
+
+                .note-card h3 { margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 700; color: #1e293b; line-height: 1.3; }
+                .content-preview { font-size: 0.95rem; color: #475569; line-height: 1.6; flex: 1; margin-bottom: 24px; white-space: pre-line; overflow: hidden; }
+
+                .card-actions { display: flex; gap: 8px; padding-top: 16px; border-top: 1px solid #f1f5f9; align-items: center; }
+                .action-pill { background: #f1f5f9; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 6px; cursor: pointer; flex: 1; justify-content: center; }
+                .action-pill:hover { background: #e2e8f0; color: #334155; }
+                .action-pill.primary { background: #4f46e5; color: white; }
+                .action-pill.primary:hover { background: #4338ca; }
+                .action-icon { width: 36px; height: 36px; border-radius: 8px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; background: white; color: #94a3b8; }
+                .action-icon:hover { background: #f1f5f9; color: #4f46e5; }
+                .action-icon.delete:hover { background: #fef2f2; color: #ef4444; }
+
+                /* MODAL OVERLAYS */
+                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); animation: fadeIn 0.2s; }
+                
+                /* EDIT FORM */
+                .note-form-card { background: white; width: 90%; max-width: 600px; padding: 32px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+                .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+                .modal-header h3 { margin: 0; font-size: 1.5rem; color: #1e293b; }
+                .input-title { font-size: 1.5rem; padding: 12px 0; border: none; border-bottom: 2px solid #e2e8f0; outline: none; font-weight: 800; color: #1e293b; width: 100%; margin-bottom: 20px; }
+                .input-title:focus { border-color: #4f46e5; }
+                .note-form-card textarea { width: 100%; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; font-family: inherit; resize: vertical; margin-top: 16px; font-size: 1rem; line-height: 1.6; }
+                .note-form-card select { padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; width: 100%; }
+                .form-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+                .save-btn { background: #4f46e5; color: white; padding: 12px 24px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; }
+                .cancel-btn { background: transparent; color: #64748b; padding: 12px 24px; border: none; font-weight: 600; cursor: pointer; }
+                .close-btn { background: none; border: none; cursor: pointer; color: #94a3b8; }
+
+                /* REVISE/FLASHCARD MODAL */
+                .flashcard-container { perspective: 1000px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+                .flashcard { width: 500px; height: 350px; position: relative; transform-style: preserve-3d; transition: transform 0.6s; cursor: pointer; }
+                .flashcard.flipped { transform: rotateY(180deg); }
+                .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+                .card-face.front { background: white; color: #1e293b; }
+                .card-face.back { background: #4f46e5; color: white; transform: rotateY(180deg); }
+                .card-label { font-size: 0.75rem; font-weight: 800; opacity: 0.6; margin-bottom: 16px; letter-spacing: 0.1em; }
+                .card-face h3 { font-size: 2rem; font-weight: 800; margin: 0; }
+                .back-content { font-size: 1.25rem; font-weight: 500; line-height: 1.6; overflow-y: auto; max-width: 100%; }
+                .tap-hint { position: absolute; bottom: 24px; font-size: 0.85rem; opacity: 0.5; display: flex; align-items: center; gap: 6px; }
+                .close-flashcard { background: white; color: #1e293b; border: none; padding: 12px 24px; border-radius: 99px; font-weight: 700; cursor: pointer; }
+
+                /* READ MODAL */
+                .read-modal-card { background: white; width: 90%; max-width: 700px; padding: 48px; border-radius: 24px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+                .subject-tag { padding: 4px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
+                .subject-tag.physics { background: #eff6ff; color: #3b82f6; }
+                .subject-tag.chemistry { background: #fff7ed; color: #f97316; }
+                .subject-tag.biology { background: #ecfdf5; color: #10b981; }
+                .modal-actions { display: flex; gap: 16px; }
+                .modal-actions button { background: none; border: none; color: #94a3b8; cursor: pointer; }
+                .modal-actions button:hover { color: #1e293b; }
+                .read-title { font-size: 2.5rem; font-weight: 800; color: #1e293b; margin: 24px 0; line-height: 1.2; }
+                .read-content { font-size: 1.15rem; color: #334155; line-height: 1.8; }
+                .read-content p { margin-bottom: 16px; }
+
+                @media(max-width: 640px) {
+                    .vault-header h1 { font-size: 2rem; }
+                    .flashcard { width: 90vw; height: 60vh; }
+                    .read-modal-card { padding: 24px; }
+                    .read-title { font-size: 1.8rem; }
                 }
 
-                .search-bar {
-                    position: relative;
-                    flex: 1;
-                    max-width: 500px;
-                    min-width: 300px;
-                }
-
-                .search-icon-container {
-                    position: absolute;
-                    left: 16px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--color-text-muted);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    pointer-events: none;
-                    z-index: 10;
-                }
-
-                .search-bar input {
-                    width: 100%;
-                    padding: 14px 16px 14px 48px;
-                    border-radius: 16px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-surface);
-                    color: var(--color-text-main);
-                    font-size: 1rem;
-                    outline: none;
-                    transition: border-color 0.2s;
-                }
-
-                .search-bar input:focus {
-                    border-color: var(--color-primary);
-                }
-
-                .clear-search {
-                    position: absolute;
-                    right: 12px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    background: var(--color-border);
-                    border: none;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: var(--color-text-main);
-                    cursor: pointer;
-                    opacity: 0.6;
-                    transition: all 0.2s;
-                }
-
-                .clear-search:hover { 
-                    opacity: 1; 
-                    background: var(--color-primary-light);
-                    color: var(--color-primary);
-                }
-
-                .filters {
-                    display: flex;
-                    gap: 8px;
-                    align-items: center;
-                }
-
-                .filter-chip {
-                    padding: 10px 18px;
-                    border-radius: 12px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-surface);
-                    color: var(--color-text-muted);
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .filter-chip.active {
-                    background: var(--color-primary);
-                    color: white;
-                    border-color: var(--color-primary);
-                }
-
-                .export-btn {
-                    padding: 10px;
-                    border-radius: 12px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-surface);
-                    color: var(--color-text-muted);
-                    cursor: pointer;
-                }
-
-                /* Form Card */
-                .form-card {
-                    background: var(--color-surface);
-                    padding: 32px;
-                    border-radius: 24px;
-                    border: 2px dashed var(--color-primary);
-                    margin-bottom: 40px;
-                    box-shadow: var(--shadow-lg);
-                }
-
-                .form-header {
-                    display: flex;
-                    gap: 16px;
-                    margin-bottom: 16px;
-                }
-
-                .title-input {
-                    flex: 1;
-                    padding: 12px;
-                    font-size: 1.25rem;
-                    font-weight: 700;
-                    border: 1px solid var(--color-border);
-                    border-radius: 10px;
-                    background: var(--color-background);
-                    color: var(--color-text-main);
-                }
-
-                .subject-select {
-                    padding: 12px;
-                    border-radius: 10px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-background);
-                    color: var(--color-text-main);
-                    font-weight: 600;
-                }
-
-                .content-textarea {
-                    width: 100%;
-                    min-height: 200px;
-                    padding: 16px;
-                    border-radius: 12px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-background);
-                    color: var(--color-text-main);
-                    font-family: inherit;
-                    font-size: 1rem;
-                    line-height: 1.6;
-                    margin-bottom: 20px;
-                    resize: vertical;
-                }
-
-                .form-footer {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-
-                .pin-checkbox {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    color: var(--color-text-muted);
-                }
-
-                .btn-group {
-                    display: flex;
-                    gap: 12px;
-                }
-
-                .header-actions {
-                    display: flex;
-                    gap: 12px;
-                    flex-shrink: 0;
-                }
-
-                .starter-kit-btn {
-                    padding: 14px 20px;
-                    background: rgba(255, 255, 255, 0.1);
-                    color: white;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    border-radius: 14px;
-                    font-weight: 600;
-                    font-size: 0.95rem;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: all 0.2s;
-                }
-
-                .starter-kit-btn:hover {
-                    background: rgba(255, 255, 255, 0.2);
-                    border-color: white;
-                }
-
-                .save-btn {
-                    padding: 12px 24px;
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    border-radius: 10px;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                .cancel-btn {
-                    padding: 12px 24px;
-                    background: var(--color-background);
-                    color: var(--color-text-muted);
-                    border: 1px solid var(--color-border);
-                    border-radius: 10px;
-                    font-weight: 600;
-                    cursor: pointer;
-                }
-
-                /* Notes Grid */
-                .notes-masonry {
-                    columns: 350px;
-                    column-gap: 24px;
-                }
-
-                .note-card {
-                    break-inside: avoid;
-                    background: var(--color-surface);
-                    border-radius: 24px;
-                    padding: 24px;
-                    border: 1px solid var(--color-border);
-                    margin-bottom: 24px;
-                    position: relative;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    box-shadow: var(--shadow-sm);
-                }
-
-                .note-card:hover {
-                    box-shadow: var(--shadow-lg);
-                    transform: translateY(-4px);
-                }
-
-                .note-card.pinned {
-                    border-color: var(--color-primary);
-                    background: linear-gradient(to bottom right, var(--color-surface), var(--color-primary-light));
-                }
-
-                .note-meta {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 16px;
-                }
-
-                .meta-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-
-                .pin-toggle-btn {
-                    background: none;
-                    border: none;
-                    color: var(--color-text-muted);
-                    cursor: pointer;
-                    padding: 4px;
-                    border-radius: 6px;
-                    transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    opacity: 0.4;
-                }
-
-                .pin-toggle-btn:hover {
-                    background: var(--color-primary-light);
-                    color: var(--color-primary);
-                    opacity: 1;
-                }
-
-                .pin-toggle-btn.active {
-                    color: var(--color-primary);
-                    opacity: 1;
-                }
-
-                .subject-tag {
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    padding: 4px 10px;
-                    border-radius: 6px;
-                    letter-spacing: 0.05em;
-                }
-
-                .note-date {
-                    font-size: 0.75rem;
-                    color: var(--color-text-muted);
-                }
-
-                .note-title {
-                    font-size: 1.25rem;
-                    font-weight: 750;
-                    margin: 0 0 12px 0;
-                    color: var(--color-text-main);
-                    line-height: 1.2;
-                }
-
-                .note-body {
-                    font-size: 0.95rem;
-                    line-height: 1.6;
-                    color: var(--color-text-main);
-                    white-space: pre-wrap;
-                    margin-bottom: 20px;
-                }
-
-                /* Note Footer Layout Fix */
-                .note-footer {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding-top: 16px;
-                    border-top: 1px solid var(--color-border);
-                    gap: 8px;
-                }
-
-                .footer-left, .footer-right {
-                    display: flex;
-                    gap: 8px;
-                    align-items: center;
-                }
-
-                .revise-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    padding: 6px 12px;
-                    border-radius: 8px;
-                    border: 1px solid var(--color-border);
-                    background: var(--color-background);
-                    color: var(--color-text-muted);
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .revise-btn.active {
-                    background: var(--color-success-bg);
-                    color: var(--color-success-text);
-                    border-color: var(--color-success-text);
-                }
-
-                .read-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 6px 14px;
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 0.8rem;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                .pinned-badge {
-                    position: absolute;
-                    top: -10px;
-                    left: 20px;
-                    background: var(--color-primary);
-                    color: white;
-                    padding: 2px 10px;
-                    border-radius: 4px;
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    box-shadow: var(--shadow-sm);
-                }
-
-                /* Reading Mode Modal */
-                .reading-modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.85);
-                    z-index: 1000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    backdrop-filter: blur(8px);
-                    padding: 20px;
-                }
-
-                .reading-modal-content {
-                    width: 100%;
-                    max-width: 800px;
-                    max-height: 90vh;
-                    border-radius: 24px;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
-                    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
-                    animation: modal-scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-                }
-
-                @keyframes modal-scale {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-
-                .reading-toolbar {
-                    padding: 16px 24px;
-                    border-bottom: 1px solid rgba(0,0,0,0.1);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    background: rgba(255,255,255,0.05);
-                }
-
-                .toolbar-left {
-                    display: flex;
-                    gap: 12px;
-                    align-items: center;
-                }
-
-                .toolbar-left button {
-                    background: rgba(128,128,128,0.1);
-                    border: 1px solid rgba(128,128,128,0.2);
-                    color: inherit;
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 10px;
-                    font-weight: bold;
-                    cursor: pointer;
-                }
-
-                .theme-pickers {
-                    display: flex;
-                    gap: 8px;
-                    margin-left: 12px;
-                    padding-left: 12px;
-                    border-left: 1px solid rgba(128,128,128,0.2);
-                }
-
-                .theme-btn {
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    border: 2px solid rgba(128,128,128,0.3);
-                    cursor: pointer;
-                }
-
-                .theme-btn.default { background: white; }
-                .theme-btn.sepia { background: #F4ECD8; }
-                .theme-btn.focus { background: #121212; border-color: #444; }
-
-                .close-reading {
-                    background: none;
-                    border: none;
-                    color: inherit;
-                    cursor: pointer;
-                    opacity: 0.6;
-                }
-
-                .reading-area {
-                    flex: 1;
-                    padding: 40px 60px;
-                    overflow-y: auto;
-                }
-
-                .reading-subject { margin-bottom: 12px; }
-                .reading-subject span {
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    padding: 4px 12px;
-                    border-radius: 6px;
-                }
-
-                .reading-title {
-                    font-size: 2.25rem;
-                    font-weight: 800;
-                    margin: 0 0 24px 0;
-                    line-height: 1.2;
-                }
-
-                .reading-body {
-                    font-size: var(--reading-font-size);
-                    line-height: 1.8;
-                    white-space: pre-wrap;
-                }
-
-                .reading-footer {
-                    padding: 24px;
-                    text-align: center;
-                    border-top: 1px solid rgba(0,0,0,0.05);
-                }
-
-                .mark-revised-btn {
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    padding: 12px 32px;
-                    border-radius: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-                }
-
-                .delete-note {
-                    color: #EF4444;
-                    background: #FEE2E2;
-                    border: none;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    transition: transform 0.2s;
-                }
-
-                .edit-note {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    color: var(--color-primary);
-                    background: transparent;
-                    border: none;
-                    font-size: 0.85rem;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                .delete-note:hover { transform: scale(1.1); }
-
-                /* Empty State */
-                .empty-state {
-                    text-align: center;
-                    padding: 80px 20px;
-                    background: var(--color-surface);
-                    border-radius: 32px;
-                    border: 1px dashed var(--color-border);
-                }
-
-                .empty-icon { color: var(--color-text-muted); margin-bottom: 20px; opacity: 0.5; }
-                .reset-btn {
-                    margin-top: 20px;
-                    padding: 10px 20px;
-                    background: var(--color-primary);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-
-                @media (max-width: 768px) {
-                    .notes-header { padding: 32px; flex-direction: column; text-align: center; }
-                    .notes-masonry { columns: 1; }
-                    .header-text h1 { font-size: 2rem; }
-                    .controls-row { flex-direction: column; align-items: stretch; }
-                }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             `}</style>
         </AppShell>
     );
 }
+

@@ -31,7 +31,7 @@ export async function POST(request) {
 
         response.cookies.set("neet_user_id", newUser.id, {
             path: "/",
-            httpOnly: false,
+            httpOnly: true, // Secure cookie
             maxAge: 60 * 60 * 24 * 7
         });
 
