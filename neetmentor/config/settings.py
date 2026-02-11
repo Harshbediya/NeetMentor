@@ -17,7 +17,22 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-*w0s6)i*ol(s=mqdg6t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS_ENV = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
+if ALLOWED_HOSTS_ENV == '*':
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = ALLOWED_HOSTS_ENV.split(',')
+
+# CSRF & CORS Settings for Production
+CSRF_TRUSTED_ORIGINS = [
+    'https://neetmentor-backend.onrender.com',
+    'https://neet-mentor.vercel.app',
+    'https://neet-mentor-git-main-harshbediyas-projects.vercel.app', # Add variations if needed
+]
+# Allow dynamic addition via Env Var (comma separated)
+CSRF_Origins_Env = os.getenv('CSRF_TRUSTED_ORIGINS')
+if CSRF_Origins_Env:
+    CSRF_TRUSTED_ORIGINS.extend(CSRF_Origins_Env.split(','))
 
 
 # Application definition
