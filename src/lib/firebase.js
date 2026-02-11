@@ -23,7 +23,6 @@ try {
             localCache: persistentLocalCache({
                 tabManager: persistentMultipleTabManager()
             }),
-            experimentalForceLongPolling: true, // Force Long Polling for maximum stability
         });
     } else {
         firestoreDb = getFirestore(app);

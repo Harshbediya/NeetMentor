@@ -1,51 +1,92 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import {
     BookOpen, Clock, ChevronRight, ArrowLeft, Trophy, RotateCcw,
-    FileText, Download, Layers, CheckCircle
+    FileText, Download, Layers, CheckCircle, Plus, Trash2, X, Edit
 } from "lucide-react";
 import "./pyqs.css";
+import { auth } from "@/lib/firebase";
+import { saveData, loadData } from "@/lib/progress";
+import api from "@/lib/api";
 
 /* --- 1. MOCK DATA FOR QUIZ --- */
-const SAMPLE_QUESTIONS = [
-    {
-        id: 1,
-        question: "A particle moves with a velocity v = (5i + 2j) m/s under the influence of a constant force F = (2i + 5j) N. The instantaneous power applied to the particle is:",
-        options: ["20 W", "10 W", "5 W", "15 W"],
-        correct: 0,
-        explanation: "Power P = F · v = (2i + 5j) · (5i + 2j) = 10 + 10 = 20 W."
-    },
-    {
-        id: 2,
-        question: "Which of the following cell organelles is responsible for extracting energy from carbohydrates to form ATP?",
-        options: ["Ribosome", "Chloroplast", "Mitochondrion", "Lysosome"],
-        correct: 2,
-        explanation: "Mitochondria are the powerhouses of the cell, performing cellular respiration to generate ATP."
-    },
-    {
-        id: 3,
-        question: "In the Young's double-slit experiment, the intensity of light at a point on the screen where the path difference is λ is K units. What is the intensity at a point where the path difference is λ/4?",
-        options: ["K/4", "K/2", "K", "Zero"],
-        correct: 1,
-        explanation: "Intensity I = I_max * cos^2(φ/2). Phase diff φ = (2π/λ) * (λ/4) = π/2. I = K * cos^2(π/4) = K * (1/√2)^2 = K/2."
-    },
-    {
-        id: 4,
-        question: "The correct order of increasing thermal stability of K2CO3, MgCO3, CaCO3, and BeCO3 is:",
-        options: ["BeCO3 < MgCO3 < CaCO3 < K2CO3", "MgCO3 < BeCO3 < CaCO3 < K2CO3", "K2CO3 < MgCO3 < CaCO3 < BeCO3", "BeCO3 < MgCO3 < K2CO3 < CaCO3"],
-        correct: 0,
-        explanation: "Thermal stability increases down the group for alkaline earth metal carbonates. Group 1 carbonates (K2CO3) are more stable than Group 2."
-    },
-    {
-        id: 5,
-        question: "Given below are two statements:\nStatement I: The acidic strength of monosubstituted nitrophenol is higher than phenol because of electron withdrawing nitro group.\nStatement II: o-nitrophenol, m-nitrophenol and p-nitrophenol will have same acidic strength as they have one nitro group attached to the phenolic ring.\nIn the light of the above statements, choose the most appropriate answer:",
-        options: ["Both Statement I and Statement II are correct.", "Both Statement I and Statement II are incorrect.", "Statement I is correct but Statement II is incorrect.", "Statement I is incorrect but Statement II is correct."],
-        correct: 2,
-        explanation: "Nitro group is electron withdrawing (-I, -M), increasing acidity. However, position matters (o/p have -M, m has only -I), so strengths differ."
+const GENERATE_MOCK_QUESTIONS = () => {
+    const subjects = ['Physics', 'Chemistry', 'Biology'];
+    const topics = {
+        'Physics': ['Mechanics', 'Electrodynamics', 'Optics', 'Thermodynamics', 'Modern Physics'],
+        'Chemistry': ['Physical', 'Organic', 'Inorganic', 'Electrochemistry', 'Chemical Bonding'],
+        'Biology': ['Genetics', 'Ecology', 'Human Physiology', 'Plant Physiology', 'Cell Biology']
+    };
+
+    const realQuestions = [
+        {
+            id: 1,
+            subject: 'Physics',
+            question: "A particle moves with a velocity v = (5i + 2j) m/s under the influence of a constant force F = (2i + 5j) N. The instantaneous power applied to the particle is:",
+            options: ["20 W", "10 W", "5 W", "15 W"],
+            correct: 0,
+            explanation: "Power P = F · v = (2i + 5j) · (5i + 2j) = 10 + 10 = 20 W."
+        },
+        {
+            id: 2,
+            subject: 'Biology',
+            question: "Which of the following cell organelles is responsible for extracting energy from carbohydrates to form ATP?",
+            options: ["Ribosome", "Chloroplast", "Mitochondrion", "Lysosome"],
+            correct: 2,
+            explanation: "Mitochondria are the powerhouses of the cell, performing cellular respiration to generate ATP."
+        },
+        {
+            id: 3,
+            subject: 'Physics',
+            question: "In the Young's double-slit experiment, the intensity of light at a point on the screen where the path difference is λ is K units. What is the intensity at a point where the path difference is λ/4?",
+            options: ["K/4", "K/2", "K", "Zero"],
+            correct: 1,
+            explanation: "Intensity I = I_max * cos^2(φ/2). Phase diff φ = (2π/λ) * (λ/4) = π/2. I = K * cos^2(π/4) = K * (1/√2)^2 = K/2."
+        },
+        {
+            id: 4,
+            subject: 'Chemistry',
+            question: "The correct order of increasing thermal stability of K2CO3, MgCO3, CaCO3, and BeCO3 is:",
+            options: ["BeCO3 < MgCO3 < CaCO3 < K2CO3", "MgCO3 < BeCO3 < CaCO3 < K2CO3", "K2CO3 < MgCO3 < CaCO3 < BeCO3", "BeCO3 < MgCO3 < K2CO3 < CaCO3"],
+            correct: 0,
+            explanation: "Thermal stability increases down the group for alkaline earth metal carbonates. Group 1 carbonates (K2CO3) are more stable than Group 2."
+        },
+        {
+            id: 5,
+            subject: 'Chemistry',
+            question: "The acidic strength of monosubstituted nitrophenol is higher than phenol because of electron withdrawing nitro group.",
+            options: ["Both Statement I and Statement II are correct.", "Both Statement I and Statement II are incorrect.", "Statement I is correct but Statement II is incorrect.", "Statement I is incorrect but Statement II is correct."],
+            correct: 2,
+            explanation: "Nitro group is electron withdrawing (-I, -M), increasing acidity."
+        }
+    ];
+
+    const generated = [];
+    for (let i = 6; i <= 200; i++) {
+        const sub = subjects[i % 3];
+        const topic = topics[sub][i % 5];
+        generated.push({
+            id: i,
+            subject: sub,
+            question: `[MOCK ${sub} Q${i}] A conceptual question about ${topic} ensuring deep understanding of the core principles. Specific scenario #${i} related to NEET syllabus.`,
+            options: [
+                `Option A for ${topic} concept`,
+                `Option B for ${topic} concept`,
+                `Option C for ${topic} concept`,
+                `Option D for ${topic} concept`
+            ],
+            correct: Math.floor(Math.random() * 4),
+            explanation: `Detailed explanation for Question ${i} covering ${topic}. This explains why the correct option is the right answer using standard NEET concepts.`
+        });
     }
-];
+
+    return [...realQuestions, ...generated];
+};
+
+const SAMPLE_QUESTIONS = GENERATE_MOCK_QUESTIONS();
 
 /* --- 2. DATA FOR PDF DOWNLOADS --- */
 const PAPERS_DATA = [
@@ -93,6 +134,7 @@ const STUDY_INSIGHTS = [
 ];
 
 export default function PYQsPage() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState("practice"); // 'practice' | 'downloads'
     const [view, setView] = useState("selection"); // selection, year_select, chapter_select, custom_setup, quiz, result
     const [selectedMode, setSelectedMode] = useState(null);
@@ -100,7 +142,10 @@ export default function PYQsPage() {
     const [selectedChapter, setSelectedChapter] = useState(null);
     const [selectedSubject, setSelectedSubject] = useState("Physics");
     const [customCount, setCustomCount] = useState(10);
+    const [customQuestionText, setCustomQuestionText] = useState(""); // For manual input
+    const [yearQuestionCount, setYearQuestionCount] = useState(200); // New State
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [historyFilterDate, setHistoryFilterDate] = useState(""); // For history filtering
     const [userAnswers, setUserAnswers] = useState({});
     const [reviewedQuestions, setReviewedQuestions] = useState({}); // { questionId: boolean }
     const [timer, setTimer] = useState(0);
@@ -112,17 +157,65 @@ export default function PYQsPage() {
     const [testHistory, setTestHistory] = useState([]);
     const [wrongQuestions, setWrongQuestions] = useState([]); // Array of IDs
 
+    // Custom Quiz State
+    const [customQuizzes, setCustomQuizzes] = useState([]);
+    const [newQuiz, setNewQuiz] = useState({ title: "", questions: [] });
+    const [questionForm, setQuestionForm] = useState({
+        question: "", options: ["", "", "", ""], correct: 0, explanation: ""
+    });
+    const [isAddingQuestion, setIsAddingQuestion] = useState(false);
+
     useEffect(() => {
         setMounted(true);
+        // Auth is handled by the API interceptor which will 401 if token is missing/invalid
+        // The AppShell or a central auth check would handle the redirect.
+
         // Load Data
-        const savedHistory = JSON.parse(localStorage.getItem("pyq_history") || "[]");
-        setTestHistory(savedHistory);
+        const loadHistory = async () => {
+            try {
+                const res = await api.get('/quiz-attempts/');
+                const backendHistory = res.data.map(item => ({
+                    id: item.id,
+                    date: item.created_at || item.date,
+                    score: item.score,
+                    correctCount: item.correct_answers,
+                    incorrectCount: item.incorrect_answers,
+                    mode: item.category === 'Full Mock' ? 'year' : 'chapter',
+                    quiz_name: item.quiz_name,
+                    mistakes: item.mistake_data || []
+                }));
 
-        const savedWrong = JSON.parse(localStorage.getItem("pyq_wrong_ids") || "[]");
-        setWrongQuestions(savedWrong);
+                // Set history directly from backend
+                setTestHistory(backendHistory);
 
-        const savedStreak = JSON.parse(localStorage.getItem("study_streak") || '{"count": 0, "lastDate": null}');
-        updateStreak(savedStreak);
+                // Derive wrong questions from backend history
+                const allMistakes = new Set();
+                backendHistory.forEach(h => {
+                    if (h.mistakes && Array.isArray(h.mistakes)) {
+                        h.mistakes.forEach(m => allMistakes.add(typeof m === 'object' ? parseInt(m.id) : parseInt(m)));
+                    }
+                });
+                setWrongQuestions(Array.from(allMistakes));
+
+            } catch (err) {
+                console.error("Failed to load history from backend", err);
+                if (err.response?.status === 401) {
+                    router.push("/login");
+                }
+                // Fallback: Empty state to avoid showing stale/other user data
+                setTestHistory([]);
+                setWrongQuestions([]);
+            }
+        };
+        loadHistory();
+
+        // Load Custom Quizzes
+        loadData("custom_quizzes", []).then(data => setCustomQuizzes(data));
+
+        // Load Streak from DB instead of localStorage (Audit Rule: No localStorage for persistence)
+        loadData("study_streak", { count: 0, lastDate: null }).then(data => {
+            updateStreak(data);
+        });
     }, []);
 
     const updateStreak = (savedStreak) => {
@@ -141,25 +234,48 @@ export default function PYQsPage() {
             setStreak(savedStreak.count);
         } else if (lastDate) {
             setStreak(0);
-            localStorage.setItem("study_streak", JSON.stringify({ count: 0, lastDate: today }));
+            saveData("study_streak", { count: 0, lastDate: today });
         } else {
             setStreak(0);
         }
     };
 
-    const saveTestResult = (result, answers) => {
+    const saveTestResult = async (result, answers) => {
         const newEntry = {
             date: new Date().toISOString(),
             ...result,
             mode: selectedMode
         };
+
+        // Try to save to Secure Backend
+        try {
+            const payload = {
+                quiz_name: selectedMode === 'year' ? `NEET ${selectedYear}` : `${selectedSubject} Quiz`,
+                category: selectedMode === 'year' ? 'Full Mock' : 'Topic Practice',
+                score: result.score,
+                total_questions: currentQuestions.length,
+                correct_answers: result.correctCount,
+                incorrect_answers: result.incorrectCount,
+                time_taken: timer,
+                mistake_data: Object.entries(answers)
+                    .filter(([qId, ans]) => ans !== currentQuestions.find(q => q.id === parseInt(qId))?.correct)
+                    .map(([qId, ans]) => ({ id: qId, selected: ans }))
+            };
+            await api.post('/quiz-attempts/', payload);
+            console.log("Saved securely to cloud.");
+        } catch (err) {
+            console.error("Backend save failed", err);
+            if (err.response?.status === 401) {
+                router.push("/login");
+            }
+        }
+
         const updatedHistory = [newEntry, ...testHistory].slice(0, 10);
         setTestHistory(updatedHistory);
-        localStorage.setItem("pyq_history", JSON.stringify(updatedHistory));
 
         // Track Wrong Questions
         const currentWrong = [...wrongQuestions];
-        SAMPLE_QUESTIONS.forEach(q => {
+        currentQuestions.forEach(q => {
             if (answers[q.id] !== undefined && answers[q.id] !== q.correct) {
                 if (!currentWrong.includes(q.id)) currentWrong.push(q.id);
             } else if (answers[q.id] === q.correct) {
@@ -168,15 +284,14 @@ export default function PYQsPage() {
             }
         });
         setWrongQuestions(currentWrong);
-        localStorage.setItem("pyq_wrong_ids", JSON.stringify(currentWrong));
 
         // Update streak on successful test completion
         const today = new Date().toDateString();
-        const savedStreak = JSON.parse(localStorage.getItem("study_streak") || '{"count": 0, "lastDate": null}');
+        const savedStreak = await loadData("study_streak", { count: 0, lastDate: null });
         if (savedStreak.lastDate !== today) {
             const newStreak = { count: savedStreak.count + 1, lastDate: today };
             setStreak(newStreak.count);
-            localStorage.setItem("study_streak", JSON.stringify(newStreak));
+            await saveData("study_streak", newStreak);
         }
     };
 
@@ -193,26 +308,37 @@ export default function PYQsPage() {
 
     const [currentQuestions, setCurrentQuestions] = useState(SAMPLE_QUESTIONS);
 
-    const startQuiz = (mode) => {
+    const startQuiz = (mode, data = null) => {
         setSelectedMode(mode);
         let qSet = [...SAMPLE_QUESTIONS];
 
-        if (mode === 'revision') {
+        if (mode === 'custom_saved') {
+            qSet = data?.questions || [];
+            if (qSet.length === 0) return alert("This quiz has no questions!");
+        } else if (mode === 'year') {
+            // For year/full mock mode, allow custom question count
+            if (qSet.length > yearQuestionCount) {
+                qSet = qSet.slice(0, yearQuestionCount);
+            }
+        } else if (mode === 'revision') {
             qSet = SAMPLE_QUESTIONS.filter(q => wrongQuestions.includes(q.id));
             if (qSet.length === 0) {
                 alert("No wrong questions to revise! Great job!");
                 return;
             }
         } else if (mode === 'chapter' || mode === 'custom') {
-            // Mock filtering: if subject is not "All", assume some questions belong to it
-            // In a real app, questions would have a 'subject' or 'chapter' field
+            // Precise filtering based on subject property
             if (selectedSubject !== "All") {
-                // For mock purposes, just take every 2nd or 3rd question as a specific subject
-                const subIndex = ["Physics", "Chemistry", "Biology"].indexOf(selectedSubject);
-                qSet = SAMPLE_QUESTIONS.filter((_, idx) => idx % 3 === subIndex);
+                qSet = SAMPLE_QUESTIONS.filter(q => q.subject === selectedSubject);
             }
 
+            // Shuffle questions for variety
+            qSet = qSet.sort(() => Math.random() - 0.5);
+
             if (mode === 'custom') {
+                if (qSet.length < customCount) {
+                    alert(`Only ${qSet.length} questions available for ${selectedSubject}. Starting with max available.`);
+                }
                 qSet = qSet.slice(0, customCount);
             }
         }
@@ -387,7 +513,7 @@ export default function PYQsPage() {
                         <div className="pyq-start-btn">Build Test <ChevronRight size={16} /></div>
                     </div>
                 </button>
-                {wrongQuestions.length > 0 && (
+                {wrongQuestions.length > 0 ? (
                     <button className="pyq-mode-card revision" onClick={() => startQuiz('revision')}>
                         <div className="pyq-card-icon"><RotateCcw size={32} /></div>
                         <div className="pyq-card-content">
@@ -396,22 +522,39 @@ export default function PYQsPage() {
                             <div className="pyq-start-btn">Start Revision <ChevronRight size={16} /></div>
                         </div>
                     </button>
+                ) : (
+                    <div className="pyq-mode-card revision disabled">
+                        <div className="pyq-card-icon"><CheckCircle size={32} color="#10b981" /></div>
+                        <div className="pyq-card-content">
+                            <h3>Smart Revision Mode</h3>
+                            <p>No wrong questions to revise! You're doing great!</p>
+                            <div className="pyq-start-btn" style={{ opacity: 0.5 }}>All Clear</div>
+                        </div>
+                    </div>
                 )}
             </div>
 
             {testHistory.length > 0 && (
                 <div className="recent-performance">
-                    <h3>Recent Performance Analysis</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h3>Recent Performance Analysis</h3>
+                        <button
+                            onClick={() => setView("history_log")}
+                            style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                            View All History <ChevronRight size={16} />
+                        </button>
+                    </div>
                     <div className="performance-history-grid">
                         {testHistory.slice(0, 3).map((test, idx) => (
                             <div key={idx} className="perf-mini-card">
                                 <div className="perf-meta">
                                     <span className="perf-date">{new Date(test.date).toLocaleDateString()}</span>
-                                    <span className="perf-mode">{test.mode === 'year' ? 'Mock' : 'Topic'}</span>
+                                    <span className="perf-mode">{test.quiz_name || (test.mode === 'year' ? 'Mock' : 'Topic')}</span>
                                 </div>
-                                <div className="perf-score">{test.score} / {SAMPLE_QUESTIONS.length * 4}</div>
+                                <div className="perf-score">{test.score} / {(test.correctCount + test.incorrectCount) * 4}</div>
                                 <div className="perf-bar">
-                                    <div className="fill" style={{ width: `${(test.correctCount / SAMPLE_QUESTIONS.length) * 100}%` }}></div>
+                                    <div className="fill" style={{ width: `${(test.correctCount / (test.correctCount + test.incorrectCount || 1)) * 100}%` }}></div>
                                 </div>
                             </div>
                         ))}
@@ -443,6 +586,28 @@ export default function PYQsPage() {
             <div className="sub-view-header">
                 <h2>Select NEET Paper Year</h2>
                 <p>Choose a full-length authentic paper from previous years.</p>
+
+                <div className="year-q-selector" style={{ marginTop: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#4b5563' }}>Questions to Attempt:</span>
+                    {[45, 90, 180, 200].map(count => (
+                        <button
+                            key={count}
+                            onClick={() => setYearQuestionCount(count)}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                border: `1px solid ${yearQuestionCount === count ? '#4f46e5' : '#e5e7eb'}`,
+                                background: yearQuestionCount === count ? '#eef2ff' : 'white',
+                                color: yearQuestionCount === count ? '#4f46e5' : '#374151',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {count}
+                        </button>
+                    ))}
+                </div>
             </div>
             <div className="year-grid">
                 {PAPERS_DATA.map(paper => (
@@ -529,18 +694,93 @@ export default function PYQsPage() {
 
                 <div className="setup-section">
                     <h4>Number of Questions</h4>
-                    <div className="count-selector">
-                        {[5, 10, 20, 45].map(count => (
+                    <div className="count-selector-custom" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {[10, 20, 45].map(count => (
                             <button
                                 key={count}
-                                className={`count-btn ${customCount === count ? 'active' : ''}`}
-                                onClick={() => setCustomCount(count)}
+                                className={`count-btn ${customCount === count && customQuestionText === "" ? 'active' : ''}`}
+                                onClick={() => {
+                                    setCustomCount(count);
+                                    setCustomQuestionText("");
+                                }}
                             >
                                 {count} Qs
                             </button>
                         ))}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <input
+                                type="number"
+                                placeholder="Custom"
+                                value={customQuestionText}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setCustomQuestionText(val);
+                                    if (val && !isNaN(val) && Number(val) > 0) {
+                                        setCustomCount(Number(val));
+                                    }
+                                }}
+                                style={{
+                                    width: '100px',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    border: customQuestionText ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                                    outline: 'none',
+                                    fontWeight: 700,
+                                    fontSize: '0.95rem'
+                                }}
+                            />
+                            {customQuestionText && <span style={{ position: 'absolute', right: '10px', fontSize: '0.75rem', fontWeight: 800, color: '#4f46e5' }}>Qs</span>}
+                        </div>
                     </div>
                 </div>
+
+                <div className="setup-section" style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h4 style={{ margin: 0 }}>My Custom Quizzes</h4>
+                        <button onClick={() => setView("create_quiz")} style={{ background: '#4f46e5', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Plus size={16} /> Create New
+                        </button>
+                    </div>
+
+                    {customQuizzes.length === 0 ? (
+                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>You haven't created any quizzes yet.</p>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                            {customQuizzes.map(q => (
+                                <button
+                                    key={q.id}
+                                    onClick={() => startQuiz('custom_saved', q)}
+                                    style={{
+                                        padding: '1rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid #e2e8f0',
+                                        background: 'white',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: '4px' }}>{q.title}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{q.questions.length} Questions</div>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const newQ = customQuizzes.filter(i => i.id !== q.id);
+                                            setCustomQuizzes(newQ);
+                                            saveData("custom_quizzes", newQ);
+                                        }}
+                                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer' }}
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
 
                 <button className="start-custom-btn" onClick={() => startQuiz('custom')}>
                     Start Custom Test <ChevronRight size={18} />
@@ -638,6 +878,188 @@ export default function PYQsPage() {
         );
     };
 
+    const CreateQuizScreen = () => {
+        const addQuestion = () => {
+            if (!questionForm.question || questionForm.options.some(o => !o)) return alert("Please fill all fields");
+            setNewQuiz({ ...newQuiz, questions: [...newQuiz.questions, { ...questionForm, id: Date.now() }] });
+            setQuestionForm({ question: "", options: ["", "", "", ""], correct: 0, explanation: "" });
+            setIsAddingQuestion(false);
+        };
+
+        const saveCustomQuiz = () => {
+            if (!newQuiz.title || newQuiz.questions.length === 0) return alert("Add title and at least one question");
+            const updatedQuizzes = [...customQuizzes, { ...newQuiz, id: Date.now() }];
+            setCustomQuizzes(updatedQuizzes);
+            saveData("custom_quizzes", updatedQuizzes);
+            setNewQuiz({ title: "", questions: [] });
+            setView("selection");
+        };
+
+        return (
+            <div className="create-quiz-container" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+                <button onClick={() => setView("custom_setup")} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem', fontWeight: 600, color: '#64748b' }}>
+                    <ArrowLeft size={18} /> Back
+                </button>
+
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.5rem' }}>Create Your Quiz</h2>
+
+                <div style={{ marginBottom: '2rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>QUIZ TITLE</label>
+                    <input
+                        value={newQuiz.title}
+                        onChange={e => setNewQuiz({ ...newQuiz, title: e.target.value })}
+                        placeholder="e.g. Tough Physics Mechanics Test"
+                        style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '1.1rem', fontWeight: 600, outline: 'none' }}
+                    />
+                </div>
+
+                <div className="added-questions-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                    {newQuiz.questions.map((q, idx) => (
+                        <div key={q.id} style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#4f46e5', background: '#eef2ff', padding: '4px 10px', borderRadius: '6px' }}>Q{idx + 1}</span>
+                                <p style={{ fontWeight: 700, color: '#1e293b', marginTop: '10px' }}>{q.question}</p>
+                            </div>
+                            <button onClick={() => setNewQuiz({ ...newQuiz, questions: newQuiz.questions.filter(i => i.id !== q.id) })} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {isAddingQuestion ? (
+                    <div className="add-question-form" style={{ background: '#f8fafc', padding: '2rem', borderRadius: '20px', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+                        <h4 style={{ margin: '0 0 1.5rem 0', fontWeight: 800 }}>New Question</h4>
+                        <input
+                            placeholder="Type your question here..."
+                            value={questionForm.question}
+                            onChange={e => setQuestionForm({ ...questionForm, question: e.target.value })}
+                            style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', marginBottom: '1rem', fontWeight: 600 }}
+                        />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
+                            {questionForm.options.map((opt, idx) => (
+                                <input
+                                    key={idx}
+                                    placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                    value={opt}
+                                    onChange={e => {
+                                        const newOpts = [...questionForm.options];
+                                        newOpts[idx] = e.target.value;
+                                        setQuestionForm({ ...questionForm, options: newOpts });
+                                    }}
+                                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                />
+                            ))}
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 700, marginRight: '10px' }}>Correct Option:</label>
+                            <select
+                                value={questionForm.correct}
+                                onChange={e => setQuestionForm({ ...questionForm, correct: parseInt(e.target.value) })}
+                                style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                            >
+                                {questionForm.options.map((_, idx) => <option key={idx} value={idx}>Option {String.fromCharCode(65 + idx)}</option>)}
+                            </select>
+                        </div>
+                        <textarea
+                            placeholder="Explanation (Optional)"
+                            value={questionForm.explanation}
+                            onChange={e => setQuestionForm({ ...questionForm, explanation: e.target.value })}
+                            style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', marginBottom: '1rem', minHeight: '80px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={addQuestion} style={{ flex: 1, background: '#1e293b', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>Add to Quiz</button>
+                            <button onClick={() => setIsAddingQuestion(false)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                    </div>
+                ) : (
+                    <button onClick={() => setIsAddingQuestion(true)} style={{ width: '100%', padding: '20px', borderRadius: '16px', border: '2px dashed #cbd5e1', background: 'white', color: '#64748b', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '2rem' }}>
+                        <Plus size={20} /> Add New Question
+                    </button>
+                )}
+
+                <button onClick={saveCustomQuiz} style={{ width: '100%', padding: '18px', borderRadius: '16px', background: '#4f46e5', color: 'white', fontWeight: 800, fontSize: '1.1rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(79, 70, 229, 0.4)' }}>
+                    Save & Finish Quiz
+                </button>
+            </div>
+        );
+    };
+
+    const HistoryLogScreen = () => {
+        const filteredHistory = historyFilterDate
+            ? testHistory.filter(t => new Date(t.date).toISOString().split('T')[0] === historyFilterDate)
+            : testHistory;
+
+        return (
+            <div className="history-log-container" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <button onClick={() => setView("selection")} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: '#64748b' }}>
+                        <ArrowLeft size={18} /> Back to Dashboard
+                    </button>
+                    <input
+                        type="date"
+                        value={historyFilterDate}
+                        onChange={(e) => setHistoryFilterDate(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', color: '#334155', fontWeight: 600 }}
+                    />
+                </div>
+
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.5rem' }}>
+                    {historyFilterDate ? `Attempts on ${new Date(historyFilterDate).toLocaleDateString()}` : "All Quiz Attempts"}
+                </h2>
+
+                {filteredHistory.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                        <Trophy size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <p>{historyFilterDate ? "No attempts found for this date." : "No attempts recorded yet. Start practicing!"}</p>
+                    </div>
+                ) : (
+                    <div className="history-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {filteredHistory.map((test, idx) => (
+                            <div key={idx} style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: '#1e293b' }}>{test.quiz_name || "Quiz Session"}</h4>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b', display: 'flex', gap: '10px' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(test.date).toLocaleDateString()} at {new Date(test.date).toLocaleTimeString()}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={14} /> {((test.correctCount / (test.correctCount + test.incorrectCount || 1)) * 100).toFixed(0)}% Accuracy</span>
+                                    </p>
+                                </div>
+                                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: 800, color: test.score >= 0 ? '#10b981' : '#ef4444' }}>{test.score > 0 ? '+' : ''}{test.score}</span>
+                                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Score</span>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm("Are you sure you want to delete this record?")) {
+                                                const originalIndex = testHistory.findIndex(t => t === test);
+                                                if (originalIndex > -1) {
+                                                    try {
+                                                        if (test.id) {
+                                                            await api.delete(`/quiz-attempts/${test.id}/`);
+                                                        }
+                                                        const newHistory = [...testHistory];
+                                                        newHistory.splice(originalIndex, 1);
+                                                        setTestHistory(newHistory);
+                                                    } catch (e) {
+                                                        console.error("Failed to delete record", e);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                        style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '10px', borderRadius: '10px', cursor: 'pointer' }}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <AppShell>
             <div className="pyq-page-container">
@@ -653,6 +1075,8 @@ export default function PYQsPage() {
                             {view === "year_select" && <YearSelectScreen />}
                             {view === "chapter_select" && <ChapterSelectScreen />}
                             {view === "custom_setup" && <CustomSetupScreen />}
+                            {view === "create_quiz" && <CreateQuizScreen />}
+                            {view === "history_log" && <HistoryLogScreen />}
                             {view === "quiz" && <QuizInterface />}
                             {view === "result" && <ResultScreen />}
                         </>

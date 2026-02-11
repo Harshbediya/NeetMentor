@@ -2,7 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import api, { setCookie, removeCookie } from "@/lib/api";
 import { Mail, Lock, ArrowRight, Sparkles, AlertCircle, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -17,23 +20,57 @@ export default function LoginPage() {
         setLoading(true);
         setError("");
 
+        const cleanEmail = email.trim().toLowerCase();
+
         try {
-            const res = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
+            const res = await api.post("/token/", {
+                username: cleanEmail,
+                password: password,
             });
 
-            const data = await res.json();
-
-            if (data.success) {
+            if (res.data.access) {
+                setCookie('token', res.data.access); // Replaced localStorage.setItem with setCookie
+                setCookie('refresh_token', res.data.refresh); // Replaced localStorage.setItem with setCookie
                 router.push("/dashboard");
-            } else {
-                setError(data.message || "Invalid email or password");
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError("Something went wrong. Please try again.");
+            if (err.response?.status === 401) {
+                setError("Invalid credentials or account not verified. Please check your email.");
+            } else if (err.response?.status === 404) {
+                setError("Server not found. Please check your backend.");
+            } else {
+                setError("Login failed. Please try again.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setLoading(true);
+        setError("");
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+
+            // Send Google user data to our backend to get REAL tokens
+            const res = await api.post("/google-login/", {
+                email: user.email,
+                first_name: user.displayName || 'Student',
+            });
+
+            if (res.data.access) {
+                setCookie('token', res.data.access);
+                setCookie('refresh_token', res.data.refresh);
+                router.push("/dashboard");
+            } else {
+                setError("Authentication failed. Please try again.");
+            }
+        } catch (error) {
+            console.error("Google login error:", error);
+            setError("Google login failed. Please check your internet connection.");
         } finally {
             setLoading(false);
         }
@@ -104,6 +141,15 @@ export default function LoginPage() {
                         {loading ? "Authenticating..." : <>Sign In <ArrowRight size={18} /></>}
                     </button>
                 </form>
+
+                <div className="divider">
+                    <span>OR</span>
+                </div>
+
+                <button onClick={handleGoogleLogin} className="google-btn" disabled={loading}>
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="18" />
+                    Continue with Google
+                </button>
 
                 <div className="footer">
                     Don&apos;t have an account? <Link href="/signup">Create One</Link>
@@ -323,6 +369,50 @@ export default function LoginPage() {
                     align-items: center;
                     gap: 0.75rem;
                     border: 1px solid #FFE4E6;
+                }
+
+                .divider {
+                    display: flex;
+                    align-items: center;
+                    text-align: center;
+                    margin: 1.5rem 0;
+                    color: #94A3B8;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                }
+
+                .divider::before,
+                .divider::after {
+                    content: "";
+                    flex: 1;
+                    border-bottom: 1px solid #F1F5F9;
+                }
+
+                .divider span {
+                    margin: 0 1rem;
+                }
+
+                .google-btn {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.75rem;
+                    background: white;
+                    border: 2px solid #F1F5F9;
+                    padding: 0.9rem;
+                    border-radius: 16px;
+                    color: #1E293B;
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .google-btn:hover {
+                    background: #F8FAFC;
+                    border-color: #E2E8F0;
+                    transform: translateY(-1px);
                 }
 
                 .footer {

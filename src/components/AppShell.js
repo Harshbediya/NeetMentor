@@ -4,14 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard, BookOpen, Clock, FileText,
-    BarChart2, Calendar, Database, Menu, X, Zap, StickyNote, LogOut, Sun, Moon, User
+    BarChart2, Calendar, Database, Menu, X, Zap, StickyNote, LogOut, Sun, Moon, User,
+    TrendingUp
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTimer } from "@/context/TimerContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Analytics', href: '/analytics', icon: TrendingUp },
     { label: 'Study Journal', href: '/study-log', icon: StickyNote },
     { label: 'Topics', href: '/topics', icon: BookOpen },
     { label: 'Syllabus', href: '/syllabus', icon: FileText },
@@ -20,6 +23,7 @@ const NAV_ITEMS = [
     { label: 'PYQs', href: '/pyqs', icon: FileText },
     { label: 'Mock Tests', href: '/tests', icon: BarChart2 },
     { label: 'Study Plan', href: '/plan', icon: Calendar },
+    { label: 'Daily History', href: '/history', icon: Clock },
     { label: 'Focus Timer', href: '/timer', icon: Clock },
     { label: 'My Profile', href: '/profile', icon: User },
 ];
@@ -71,35 +75,19 @@ function TimerIndicator() {
     );
 }
 
+import { removeCookie } from "@/lib/api";
+
 export default function AppShell({ children, rightPanel }) {
     const pathname = usePathname();
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    const [theme, setTheme] = useState("light");
+    const { theme, toggleTheme } = useTheme();
 
-    useEffect(() => {
-        const savedTheme = localStorage.getItem("neet-theme") ||
-            (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        setTheme(savedTheme);
-        document.documentElement.setAttribute("data-theme", savedTheme);
-    }, []);
-
-    const toggleTheme = () => {
-        const newTheme = theme === "light" ? "dark" : "light";
-        setTheme(newTheme);
-        document.documentElement.setAttribute("data-theme", newTheme);
-        localStorage.setItem("neet-theme", newTheme);
-    };
-
-    const handleLogout = async () => {
-        try {
-            await fetch("/api/auth/logout", { method: "POST" });
-            router.push("/");
-            router.refresh();
-        } catch (error) {
-            console.error("Logout failed", error);
-        }
+    const handleLogout = () => {
+        removeCookie('token');
+        removeCookie('refresh_token');
+        router.push("/login");
     };
 
     return (
@@ -138,6 +126,7 @@ export default function AppShell({ children, rightPanel }) {
                 <div className="sidebar-actions">
                     <TimerIndicator />
 
+
                     <button onClick={handleLogout} className="nav-link logout-btn" style={{ marginTop: 'auto', marginBottom: '16px' }}>
                         <LogOut size={20} />
                         Logout
@@ -150,42 +139,62 @@ export default function AppShell({ children, rightPanel }) {
                 </div>
             </aside>
 
-            {/* Mobile Header */}
-            <div className="mobile-header">
-                <Link href="/" className="mobile-brand" style={{ textDecoration: 'none' }}>
-                    <Zap size={24} fill="var(--color-primary)" /> NEETMentor
+            {/* Mobile Header (Glassmorphism) */}
+            <div className={`mobile-header ${mobileMenuOpen ? 'menu-open' : ''}`}>
+                <Link href="/" className="mobile-brand">
+                    <div className="brand-icon-wrapper">
+                        <Zap size={20} fill="white" />
+                    </div>
+                    <span className="brand-text">NEETMentor</span>
                 </Link>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="mobile-header-actions">
                     <button onClick={toggleTheme} className="theme-toggle-btn">
-                        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                        {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                     </button>
-                    <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="mobile-menu-btn">
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        className={`mobile-menu-btn ${mobileMenuOpen ? 'active' : ''}`}
+                    >
                         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
                 </div>
             </div>
 
-            {/* Mobile Menu Overlay */}
+            {/* Mobile Menu Overlay (Premium Drawer) */}
             {mobileMenuOpen && (
                 <div className="mobile-menu-overlay">
-                    <nav>
+                    <div className="menu-drawer-header">
+                        <p className="menu-subtitle">TARGET: NEET 2026</p>
+                        <h2 className="menu-title">Main Navigation</h2>
+                    </div>
+                    <nav className="mobile-nav">
                         <ul>
-                            {NAV_ITEMS.map((item) => (
-                                <li key={item.href}>
-                                    <Link
-                                        href={item.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className={`mobile-nav-link ${pathname === item.href ? 'active' : ''}`}
-                                    >
-                                        <item.icon size={24} />
-                                        {item.label}
-                                    </Link>
-                                </li>
-                            ))}
-                            <li>
+                            {NAV_ITEMS.map((item) => {
+                                const isActive = pathname === item.href;
+                                return (
+                                    <li key={item.href}>
+                                        <Link
+                                            href={item.href}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className={`mobile-nav-link ${isActive ? 'active' : ''}`}
+                                        >
+                                            <div className={`icon-container ${isActive ? 'active' : ''}`}>
+                                                <item.icon size={20} />
+                                            </div>
+                                            <span className="label-container">
+                                                <span className="label-text">{item.label}</span>
+                                                {isActive && <div className="active-pill"></div>}
+                                            </span>
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                            <li style={{ marginTop: '20px', borderTop: '1px solid var(--color-border)', paddingTop: '20px' }}>
                                 <button onClick={handleLogout} className="mobile-nav-link logout-btn">
-                                    <LogOut size={24} />
-                                    Logout
+                                    <div className="icon-container" style={{ background: '#FFF1F2', color: '#E11D48' }}>
+                                        <LogOut size={20} />
+                                    </div>
+                                    <span className="label-text">Logout</span>
                                 </button>
                             </li>
                         </ul>
@@ -193,8 +202,14 @@ export default function AppShell({ children, rightPanel }) {
                 </div>
             )}
 
+
             {/* Main Content Area */}
             <main className="main-content">
+                {rightPanel && (
+                    <div className="mobile-right-panel">
+                        {rightPanel}
+                    </div>
+                )}
                 {children}
             </main>
 
@@ -211,7 +226,10 @@ export default function AppShell({ children, rightPanel }) {
                     grid-template-columns: 260px 1fr ${rightPanel ? '380px' : '0px'};
                     min-height: 100vh;
                     background: var(--color-background);
+                    position: relative;
                 }
+
+
 
                 /* Left Sidebar */
                 .sidebar-desktop {
@@ -339,6 +357,11 @@ export default function AppShell({ children, rightPanel }) {
                     color: var(--color-text-main);
                 }
 
+                .mobile-right-panel {
+                    display: none;
+                    margin-bottom: 24px;
+                }
+
                 /* Tablet: Stack right panel below main content */
                 @media (max-width: 1200px) {
                     .app-shell-wrapper {
@@ -347,6 +370,10 @@ export default function AppShell({ children, rightPanel }) {
 
                     .right-panel {
                         display: none;
+                    }
+
+                    .mobile-right-panel {
+                        display: block;
                     }
                 }
 
@@ -360,74 +387,193 @@ export default function AppShell({ children, rightPanel }) {
                         display: none;
                     }
 
+                /* Mobile Header (Premium Glass) */
+                .mobile-header {
+                    display: none;
+                }
+
+                @media (max-width: 900px) {
                     .mobile-header {
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
-                        padding: 16px;
-                        background: white;
-                        border-bottom: 1px solid #e2e8f0;
+                        padding: 12px 20px;
+                        background: var(--glass-bg);
+                        backdrop-filter: var(--glass-blur);
+                        -webkit-backdrop-filter: var(--glass-blur);
+                        border-bottom: 1px solid var(--glass-border);
                         position: sticky;
                         top: 0;
-                        z-index: 90;
+                        z-index: 1000;
+                        transition: all var(--transition-normal);
+                    }
+
+                    .mobile-header.menu-open {
+                        background: var(--color-surface);
+                        backdrop-filter: none;
                     }
 
                     .mobile-brand {
                         display: flex;
                         align-items: center;
-                        gap: 8px;
-                        color: var(--color-primary);
-                        font-weight: 700;
-                        font-size: 1.25rem;
+                        gap: 10px;
+                        text-decoration: none;
                     }
 
+                    .brand-icon-wrapper {
+                        background: var(--color-primary);
+                        padding: 6px;
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+                    }
+
+                    .brand-text {
+                        font-weight: 800;
+                        font-size: 1.15rem;
+                        color: var(--color-text-main);
+                        letter-spacing: -0.02em;
+                    }
+
+                    .mobile-header-actions {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    }
+
+                    .theme-toggle-btn {
+                        background: var(--color-primary-light);
+                        color: var(--color-primary);
+                        border: none;
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .mobile-menu-btn {
+                        background: var(--color-text-main);
+                        color: white;
+                        border: none;
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all var(--transition-fast);
+                    }
+
+                    .mobile-menu-btn.active {
+                        background: #F1F5F9;
+                        color: #64748B;
+                    }
+
+                    /* Mobile Menu Interior */
                     .mobile-menu-overlay {
                         position: fixed;
-                        top: 64px;
+                        top: 0;
                         left: 0;
                         right: 0;
                         bottom: 0;
-                        background: white;
-                        z-index: 80;
-                        padding: 24px;
+                        background: var(--color-surface);
+                        z-index: 999;
+                        padding: 80px 24px 24px;
                         overflow-y: auto;
+                        animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     }
 
-                    .mobile-menu-overlay ul {
-                        list-style: none;
-                        padding: 0;
+                    .menu-drawer-header {
+                        margin-bottom: 24px;
+                        padding-left: 8px;
+                    }
+
+                    .menu-subtitle {
+                        font-size: 0.7rem;
+                        font-weight: 800;
+                        color: var(--color-primary);
+                        letter-spacing: 0.1em;
+                        margin-bottom: 4px;
+                    }
+
+                    .menu-title {
+                        font-size: 1.5rem;
+                        font-weight: 800;
                         margin: 0;
                     }
 
-                    .mobile-menu-overlay li {
-                        margin-bottom: 12px;
+                    .mobile-nav ul {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
                     }
 
                     .mobile-nav-link {
                         display: flex;
                         align-items: center;
                         gap: 16px;
-                        padding: 16px;
-                        border-radius: 8px;
-                        background: transparent;
+                        padding: 12px 8px;
+                        border-radius: 14px;
                         color: var(--color-text-muted);
                         font-weight: 600;
-                        font-size: 1.1rem;
+                        font-size: 1.05rem;
+                        transition: all 0.2s;
+                        margin-bottom: 4px;
+                    }
+
+                    .icon-container {
+                        width: 40px;
+                        height: 40px;
+                        background: #F8FAFC;
+                        border-radius: 12px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #64748B;
+                        transition: all 0.2s;
                     }
 
                     .mobile-nav-link.active {
+                        color: var(--color-text-main);
                         background: var(--color-primary-light);
-                        color: var(--color-primary);
                     }
 
-                    .main-content {
-                        padding: 20px;
+                    .mobile-nav-link.active .icon-container {
+                        background: var(--color-primary);
+                        color: white;
+                        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+                    }
+
+                    .label-container {
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+
+                    .active-pill {
+                        width: 6px;
+                        height: 6px;
+                        background: var(--color-primary);
+                        border-radius: 50%;
+                    }
+
+                    @keyframes slideUp {
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
                     }
                 }
 
                 @media (max-width: 640px) {
                     .main-content {
                         padding: 16px;
+                    }
+                    .mobile-header {
+                        padding: 10px 16px;
                     }
                 }
             `}</style>

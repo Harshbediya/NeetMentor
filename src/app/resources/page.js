@@ -3,414 +3,418 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import {
-    Plus,
-    Trash2,
-    FileText,
-    Video,
-    BookOpen,
-    Link2,
-    X,
-    Image as ImageIcon,
-    ExternalLink,
-    Search,
-    Filter,
+  Plus,
+  Trash2,
+  FileText,
+  Video,
+  BookOpen,
+  Link2,
+  X,
+  Image as ImageIcon,
+  ExternalLink,
+  Search,
+  Filter,
 } from "lucide-react";
 
+import { loadData, saveData } from "@/lib/progress";
+
 const DEFAULT_RESOURCES = [
-    {
-        id: 1,
-        title: "NCERT Physics Class 11",
-        description: "Complete textbook with all chapters and exercises - Foundation for NEET Physics",
-        link: "https://ncert.nic.in/textbook.php?keph1=0-16",
-        subject: "Physics",
-        type: "PDF",
-    },
-    {
-        id: 2,
-        title: "NCERT Chemistry Class 11",
-        description: "Essential reading for NEET Chemistry preparation with detailed explanations",
-        link: "https://ncert.nic.in/textbook.php?kech1=0-16",
-        subject: "Chemistry",
-        type: "PDF",
-    },
-    {
-        id: 3,
-        title: "NCERT Biology Class 11",
-        description: "Most important book for NEET Biology - covers entire syllabus comprehensively",
-        link: "https://ncert.nic.in/textbook.php?kebo1=0-22",
-        subject: "Biology",
-        type: "PDF",
-    },
-    {
-        id: 4,
-        title: "Modern Physics One Shot Revision",
-        description: "Complete Modern Physics chapter explained in one comprehensive video lecture",
-        link: "https://www.youtube.com/watch?v=example",
-        subject: "Physics",
-        type: "YouTube",
-    },
-    {
-        id: 5,
-        title: "Organic Chemistry Reactions",
-        description: "All named reactions and mechanisms with detailed notes and examples",
-        link: "https://example.com/organic-notes",
-        subject: "Chemistry",
-        type: "Notes",
-    },
-    {
-        id: 6,
-        title: "Human Anatomy Diagrams",
-        description: "High-quality labeled diagrams for all body systems and organs",
-        link: "https://example.com/anatomy-diagrams",
-        subject: "Biology",
-        type: "Diagram",
-    },
+  {
+    id: 1,
+    title: "NCERT Physics Class 11",
+    description: "Complete textbook with all chapters and exercises - Foundation for NEET Physics",
+    link: "https://ncert.nic.in/textbook.php?keph1=0-16",
+    subject: "Physics",
+    type: "PDF",
+  },
+  {
+    id: 2,
+    title: "NCERT Chemistry Class 11",
+    description: "Essential reading for NEET Chemistry preparation with detailed explanations",
+    link: "https://ncert.nic.in/textbook.php?kech1=0-16",
+    subject: "Chemistry",
+    type: "PDF",
+  },
+  {
+    id: 3,
+    title: "NCERT Biology Class 11",
+    description: "Most important book for NEET Biology - covers entire syllabus comprehensively",
+    link: "https://ncert.nic.in/textbook.php?kebo1=0-22",
+    subject: "Biology",
+    type: "PDF",
+  },
+  {
+    id: 4,
+    title: "Modern Physics One Shot Revision",
+    description: "Complete Modern Physics chapter explained in one comprehensive video lecture",
+    link: "https://www.youtube.com/watch?v=example",
+    subject: "Physics",
+    type: "YouTube",
+  },
+  {
+    id: 5,
+    title: "Organic Chemistry Reactions",
+    description: "All named reactions and mechanisms with detailed notes and examples",
+    link: "https://example.com/organic-notes",
+    subject: "Chemistry",
+    type: "Notes",
+  },
+  {
+    id: 6,
+    title: "Human Anatomy Diagrams",
+    description: "High-quality labeled diagrams for all body systems and organs",
+    link: "https://example.com/anatomy-diagrams",
+    subject: "Biology",
+    type: "Diagram",
+  },
 ];
 
 export default function ResourcesPage() {
-    const [resources, setResources] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [filter, setFilter] = useState("All");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [form, setForm] = useState({
-        title: "",
-        description: "",
-        link: "",
-        subject: "Physics",
-        type: "PDF",
+  const [resources, setResources] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    link: "",
+    subject: "Physics",
+    type: "PDF",
+  });
+
+  useEffect(() => {
+    const fetchResources = async () => {
+      const saved = await loadData("resources_master", []);
+      if (!saved || saved.length === 0) {
+        setResources(DEFAULT_RESOURCES);
+      } else {
+        setResources(saved);
+      }
+    };
+    fetchResources();
+  }, []);
+
+  const persistResources = async (updatedResources) => {
+    setResources(updatedResources);
+    await saveData("resources_master", updatedResources);
+  };
+
+  const addResource = () => {
+    if (!form.title.trim() || !form.link.trim()) {
+      alert("Please fill in Title and Link");
+      return;
+    }
+    const newResource = {
+      id: Date.now(),
+      ...form,
+    };
+    persistResources([newResource, ...resources]);
+    setShowModal(false);
+    setForm({
+      title: "",
+      description: "",
+      link: "",
+      subject: "Physics",
+      type: "PDF",
     });
+  };
 
-    useEffect(() => {
-        const saved = localStorage.getItem("neet_resources_master");
-        if (!saved || JSON.parse(saved).length === 0) {
-            setResources(DEFAULT_RESOURCES);
-        } else {
-            setResources(JSON.parse(saved));
-        }
-    }, []);
+  const deleteResource = (id) => {
+    if (confirm("Are you sure you want to delete this resource?")) {
+      persistResources(resources.filter((r) => r.id !== id));
+    }
+  };
 
-    useEffect(() => {
-        if (resources.length > 0) {
-            localStorage.setItem("neet_resources_master", JSON.stringify(resources));
-        }
-    }, [resources]);
+  const filteredResources = resources.filter((resource) => {
+    const matchesFilter = filter === "All" || resource.subject === filter;
+    const matchesSearch =
+      searchQuery === "" ||
+      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
-    const addResource = () => {
-        if (!form.title.trim() || !form.link.trim()) {
-            alert("Please fill in Title and Link");
-            return;
-        }
-        const newResource = {
-            id: Date.now(),
-            ...form,
-        };
-        setResources([newResource, ...resources]);
-        setShowModal(false);
-        setForm({
-            title: "",
-            description: "",
-            link: "",
-            subject: "Physics",
-            type: "PDF",
-        });
-    };
+  const getIcon = (type) => {
+    const iconProps = { size: 22, strokeWidth: 2 };
+    switch (type) {
+      case "PDF":
+        return <FileText {...iconProps} className="resource-icon pdf" />;
+      case "YouTube":
+        return <Video {...iconProps} className="resource-icon youtube" />;
+      case "Notes":
+        return <BookOpen {...iconProps} className="resource-icon notes" />;
+      case "Diagram":
+        return <ImageIcon {...iconProps} className="resource-icon diagram" />;
+      default:
+        return <Link2 {...iconProps} className="resource-icon link" />;
+    }
+  };
 
-    const deleteResource = (id) => {
-        if (confirm("Are you sure you want to delete this resource?")) {
-            setResources(resources.filter((r) => r.id !== id));
-        }
-    };
+  const getSubjectColor = (subject) => {
+    switch (subject) {
+      case "Physics":
+        return "#3B82F6";
+      case "Chemistry":
+        return "#10B981";
+      case "Biology":
+        return "#F59E0B";
+      default:
+        return "#64748B";
+    }
+  };
 
-    const filteredResources = resources.filter((resource) => {
-        const matchesFilter = filter === "All" || resource.subject === filter;
-        const matchesSearch =
-            searchQuery === "" ||
-            resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            resource.description.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesFilter && matchesSearch;
-    });
+  const subjectCounts = {
+    All: resources.length,
+    Physics: resources.filter((r) => r.subject === "Physics").length,
+    Chemistry: resources.filter((r) => r.subject === "Chemistry").length,
+    Biology: resources.filter((r) => r.subject === "Biology").length,
+  };
 
-    const getIcon = (type) => {
-        const iconProps = { size: 22, strokeWidth: 2 };
-        switch (type) {
-            case "PDF":
-                return <FileText {...iconProps} className="resource-icon pdf" />;
-            case "YouTube":
-                return <Video {...iconProps} className="resource-icon youtube" />;
-            case "Notes":
-                return <BookOpen {...iconProps} className="resource-icon notes" />;
-            case "Diagram":
-                return <ImageIcon {...iconProps} className="resource-icon diagram" />;
-            default:
-                return <Link2 {...iconProps} className="resource-icon link" />;
-        }
-    };
+  return (
+    <AppShell>
+      <div className="resources-page">
+        {/* Header Section */}
+        <div className="page-header">
+          <div className="header-left">
+            <h1 className="page-title">NEET Resources Library</h1>
+            <p className="page-description">
+              Curated study materials for your NEET preparation journey
+            </p>
+          </div>
+          <button className="btn-add" onClick={() => setShowModal(true)}>
+            <Plus size={20} strokeWidth={2.5} />
+            <span>Add Resource</span>
+          </button>
+        </div>
 
-    const getSubjectColor = (subject) => {
-        switch (subject) {
-            case "Physics":
-                return "#3B82F6";
-            case "Chemistry":
-                return "#10B981";
-            case "Biology":
-                return "#F59E0B";
-            default:
-                return "#64748B";
-        }
-    };
+        {/* Search & Filter Bar */}
+        <div className="controls-section">
+          <div className="search-box">
 
-    const subjectCounts = {
-        All: resources.length,
-        Physics: resources.filter((r) => r.subject === "Physics").length,
-        Chemistry: resources.filter((r) => r.subject === "Chemistry").length,
-        Biology: resources.filter((r) => r.subject === "Biology").length,
-    };
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          <div className="filter-section">
+            {["All", "Physics", "Chemistry", "Biology"].map((subject) => (
+              <button
+                key={subject}
+                onClick={() => setFilter(subject)}
+                className={`filter-chip ${filter === subject ? "active" : ""}`}
+                style={
+                  filter === subject
+                    ? {
+                      backgroundColor: getSubjectColor(subject),
+                      borderColor: getSubjectColor(subject),
+                    }
+                    : {}
+                }
+              >
+                <span className="chip-label">{subject}</span>
+                <span className="chip-count">{subjectCounts[subject]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Results Count */}
+        <div className="results-info">
+          <p>
+            Showing <strong>{filteredResources.length}</strong> resource
+            {filteredResources.length !== 1 ? "s" : ""}
+          </p>
+        </div>
 
-    return (
-        <AppShell>
-            <div className="resources-page">
-                {/* Header Section */}
-                <div className="page-header">
-                    <div className="header-left">
-                        <h1 className="page-title">NEET Resources Library</h1>
-                        <p className="page-description">
-                            Curated study materials for your NEET preparation journey
-                        </p>
-                    </div>
-                    <button className="btn-add" onClick={() => setShowModal(true)}>
-                        <Plus size={20} strokeWidth={2.5} />
-                        <span>Add Resource</span>
+        {/* Resources Grid */}
+        {filteredResources.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <BookOpen size={56} strokeWidth={1.5} />
+            </div>
+            <h3 className="empty-title">No resources found</h3>
+            <p className="empty-text">
+              {searchQuery
+                ? "Try adjusting your search or filters"
+                : "Add your first resource to get started"}
+            </p>
+            {!searchQuery && (
+              <button
+                className="btn-add-empty"
+                onClick={() => setShowModal(true)}
+              >
+                <Plus size={18} />
+                Add Your First Resource
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="resources-grid">
+            {filteredResources.map((resource) => (
+              <div key={resource.id} className="resource-card">
+                <div className="card-header">
+                  <div className="card-icon-wrapper">{getIcon(resource.type)}</div>
+                  <div className="card-actions">
+                    <button
+                      className="action-btn delete"
+                      onClick={() => deleteResource(resource.id)}
+                      title="Delete resource"
+                    >
+                      <Trash2 size={16} />
                     </button>
+                  </div>
                 </div>
 
-                {/* Search & Filter Bar */}
-                <div className="controls-section">
-                    <div className="search-box">
-
-                        <input
-                            type="text"
-                            placeholder="Search resources..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="search-input"
-                        />
-                    </div>
-                    <div className="filter-section">
-                        {["All", "Physics", "Chemistry", "Biology"].map((subject) => (
-                            <button
-                                key={subject}
-                                onClick={() => setFilter(subject)}
-                                className={`filter-chip ${filter === subject ? "active" : ""}`}
-                                style={
-                                    filter === subject
-                                        ? {
-                                            backgroundColor: getSubjectColor(subject),
-                                            borderColor: getSubjectColor(subject),
-                                        }
-                                        : {}
-                                }
-                            >
-                                <span className="chip-label">{subject}</span>
-                                <span className="chip-count">{subjectCounts[subject]}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                {/* Results Count */}
-                <div className="results-info">
-                    <p>
-                        Showing <strong>{filteredResources.length}</strong> resource
-                        {filteredResources.length !== 1 ? "s" : ""}
-                    </p>
+                <div className="card-content">
+                  <h3 className="card-title">{resource.title}</h3>
+                  <p className="card-description">{resource.description}</p>
                 </div>
 
-                {/* Resources Grid */}
-                {filteredResources.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">
-                            <BookOpen size={56} strokeWidth={1.5} />
-                        </div>
-                        <h3 className="empty-title">No resources found</h3>
-                        <p className="empty-text">
-                            {searchQuery
-                                ? "Try adjusting your search or filters"
-                                : "Add your first resource to get started"}
-                        </p>
-                        {!searchQuery && (
-                            <button
-                                className="btn-add-empty"
-                                onClick={() => setShowModal(true)}
-                            >
-                                <Plus size={18} />
-                                Add Your First Resource
-                            </button>
-                        )}
-                    </div>
-                ) : (
-                    <div className="resources-grid">
-                        {filteredResources.map((resource) => (
-                            <div key={resource.id} className="resource-card">
-                                <div className="card-header">
-                                    <div className="card-icon-wrapper">{getIcon(resource.type)}</div>
-                                    <div className="card-actions">
-                                        <button
-                                            className="action-btn delete"
-                                            onClick={() => deleteResource(resource.id)}
-                                            title="Delete resource"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
+                <div className="card-footer">
+                  <div className="card-meta">
+                    <span
+                      className="subject-tag"
+                      style={{
+                        backgroundColor: `${getSubjectColor(resource.subject)}15`,
+                        color: getSubjectColor(resource.subject),
+                        borderColor: `${getSubjectColor(resource.subject)}30`,
+                      }}
+                    >
+                      {resource.subject}
+                    </span>
+                    <span className="type-label">{resource.type}</span>
+                  </div>
 
-                                <div className="card-content">
-                                    <h3 className="card-title">{resource.title}</h3>
-                                    <p className="card-description">{resource.description}</p>
-                                </div>
+                  <a href={resource.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-open"
+                  >
+                    <span>Open</span>
+                    <ExternalLink size={16} />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Add Resource Modal */}
+        {showModal && (
+          <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+            <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <h2 className="modal-title">Add New Resource</h2>
+                  <p className="modal-subtitle">
+                    Add a helpful resource to your library
+                  </p>
+                </div>
+                <button className="modal-close" onClick={() => setShowModal(false)}>
+                  <X size={24} />
+                </button>
+              </div>
 
-                                <div className="card-footer">
-                                    <div className="card-meta">
-                                        <span
-                                            className="subject-tag"
-                                            style={{
-                                                backgroundColor: `${getSubjectColor(resource.subject)}15`,
-                                                color: getSubjectColor(resource.subject),
-                                                borderColor: `${getSubjectColor(resource.subject)}30`,
-                                            }}
-                                        >
-                                            {resource.subject}
-                                        </span>
-                                        <span className="type-label">{resource.type}</span>
-                                    </div>
+              <div className="modal-body">
+                <div className="form-field">
+                  <label className="form-label" htmlFor="title">
+                    Title <span className="required">*</span>
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    placeholder="e.g., NCERT Physics Class 12"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
 
-                                    <a href={resource.link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn-open"
-                                    >
-                                        <span>Open</span>
-                                        <ExternalLink size={16} />
-                                    </a>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {/* Add Resource Modal */}
-                {showModal && (
-                    <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-                        <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-                            <div className="modal-header">
-                                <div>
-                                    <h2 className="modal-title">Add New Resource</h2>
-                                    <p className="modal-subtitle">
-                                        Add a helpful resource to your library
-                                    </p>
-                                </div>
-                                <button className="modal-close" onClick={() => setShowModal(false)}>
-                                    <X size={24} />
-                                </button>
-                            </div>
+                <div className="form-field">
+                  <label className="form-label" htmlFor="description">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    placeholder="Brief description of the resource..."
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                    className="form-textarea"
+                    rows={3}
+                  />
+                </div>
 
-                            <div className="modal-body">
-                                <div className="form-field">
-                                    <label className="form-label" htmlFor="title">
-                                        Title <span className="required">*</span>
-                                    </label>
-                                    <input
-                                        id="title"
-                                        type="text"
-                                        placeholder="e.g., NCERT Physics Class 12"
-                                        value={form.title}
-                                        onChange={(e) => setForm({ ...form, title: e.target.value })}
-                                        className="form-input"
-                                    />
-                                </div>
+                <div className="form-field">
+                  <label className="form-label" htmlFor="link">
+                    Link <span className="required">*</span>
+                  </label>
+                  <input
+                    id="link"
+                    type="url"
+                    placeholder="https://example.com/resource"
+                    value={form.link}
+                    onChange={(e) => setForm({ ...form, link: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
 
-                                <div className="form-field">
-                                    <label className="form-label" htmlFor="description">
-                                        Description
-                                    </label>
-                                    <textarea
-                                        id="description"
-                                        placeholder="Brief description of the resource..."
-                                        value={form.description}
-                                        onChange={(e) =>
-                                            setForm({ ...form, description: e.target.value })
-                                        }
-                                        className="form-textarea"
-                                        rows={3}
-                                    />
-                                </div>
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="subject">
+                      Subject
+                    </label>
+                    <select
+                      id="subject"
+                      value={form.subject}
+                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="Physics">Physics</option>
+                      <option value="Chemistry">Chemistry</option>
+                      <option value="Biology">Biology</option>
+                    </select>
+                  </div>
 
-                                <div className="form-field">
-                                    <label className="form-label" htmlFor="link">
-                                        Link <span className="required">*</span>
-                                    </label>
-                                    <input
-                                        id="link"
-                                        type="url"
-                                        placeholder="https://example.com/resource"
-                                        value={form.link}
-                                        onChange={(e) => setForm({ ...form, link: e.target.value })}
-                                        className="form-input"
-                                    />
-                                </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="type">
+                      Type
+                    </label>
+                    <select
+                      id="type"
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="PDF">PDF Document</option>
+                      <option value="YouTube">YouTube Video</option>
+                      <option value="Notes">Notes</option>
+                      <option value="Diagram">Diagram/Image</option>
+                      <option value="Website">Website</option>
+                    </select>
+                  </div>
+                </div>
 
-                                <div className="form-row">
-                                    <div className="form-field">
-                                        <label className="form-label" htmlFor="subject">
-                                            Subject
-                                        </label>
-                                        <select
-                                            id="subject"
-                                            value={form.subject}
-                                            onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                                            className="form-select"
-                                        >
-                                            <option value="Physics">Physics</option>
-                                            <option value="Chemistry">Chemistry</option>
-                                            <option value="Biology">Biology</option>
-                                        </select>
-                                    </div>
+                <div className="modal-actions">
+                  <button
+                    className="btn-cancel"
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button className="btn-submit" onClick={addResource}>
+                    <Plus size={18} />
+                    Add Resource
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-                                    <div className="form-field">
-                                        <label className="form-label" htmlFor="type">
-                                            Type
-                                        </label>
-                                        <select
-                                            id="type"
-                                            value={form.type}
-                                            onChange={(e) => setForm({ ...form, type: e.target.value })}
-                                            className="form-select"
-                                        >
-                                            <option value="PDF">PDF Document</option>
-                                            <option value="YouTube">YouTube Video</option>
-                                            <option value="Notes">Notes</option>
-                                            <option value="Diagram">Diagram/Image</option>
-                                            <option value="Website">Website</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="modal-actions">
-                                    <button
-                                        className="btn-cancel"
-                                        onClick={() => setShowModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button className="btn-submit" onClick={addResource}>
-                                        <Plus size={18} />
-                                        Add Resource
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <style jsx>{`
+        <style jsx>{`
           .resources-page {
             min-height: 100vh;
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -1029,7 +1033,7 @@ export default function ResourcesPage() {
             }
           }
         `}</style>
-            </div>
-        </AppShell>
-    );
+      </div>
+    </AppShell>
+  );
 } 
