@@ -175,3 +175,14 @@ from corsheaders.defaults import default_methods
 CORS_ALLOW_METHODS = list(default_methods) + [
     'PATCH',
 ]
+
+# Render / Production Settings
+# Trust the X-Forwarded-Proto header for SSL (Render terminates SSL at load balancer)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+
+CORS_ALLOW_CREDENTIALS = True
