@@ -21,6 +21,9 @@ import secrets
 from datetime import datetime, timedelta
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+import resend
+from django.conf import settings
+
 
 User = get_user_model()
 from .models import PreRegistration
@@ -102,13 +105,24 @@ class RegisterView(APIView):
         print(f"VERIFICATION OTP: {otp}")
         print("="*50 + "\n")
 
-        send_mail(
-            'Your Verification Code - NEETMentor',
-            f'Hi {first_name},\n\nYour 6-digit verification code is: {otp}\n\nPlease enter this code on the website to complete your registration.',
-            'harshbedi3112@gmail.com',
-            [email],
-            fail_silently=False,
-        )
+        if settings.RESEND_API_KEY:
+            resend.api_key = settings.RESEND_API_KEY
+            params = {
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [email],
+                "subject": "Your Verification Code - NEETMentor",
+                "html": f"<p>Hi {first_name},</p><p>Your 6-digit verification code is: <strong>{otp}</strong></p><p>Please enter this code on the website to complete your registration.</p>",
+            }
+            resend.Emails.send(params)
+        else:
+            # Fallback for local development if no API key
+            send_mail(
+                'Your Verification Code - NEETMentor',
+                f'Hi {first_name},\n\nYour 6-digit verification code is: {otp}\n\nPlease enter this code on the website to complete your registration.',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
 
 class VerifyOTPView(APIView):
     permission_classes = (permissions.AllowAny,)

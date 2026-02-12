@@ -145,15 +145,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'core.User'
 
-# Email Settings for Production (Gmail)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 465  # Use SSL Port
-EMAIL_USE_SSL = True  # Use SSL
-EMAIL_USE_TLS = False # Disable TLS
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = f'NEETMentor <{EMAIL_HOST_USER}>'
+# Email Settings for Production (Resend)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+DEFAULT_FROM_EMAIL = 'onboarding@resend.dev' # Default for unverified domains
+if os.getenv('EMAIL_HOST_USER'):
+    DEFAULT_FROM_EMAIL = f"NEETMentor <{os.getenv('EMAIL_HOST_USER')}>"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
