@@ -178,11 +178,22 @@ CORS_ALLOW_METHODS = list(default_methods) + [
 
 # Render / Production Settings
 # Trust the X-Forwarded-Proto header for SSL (Render terminates SSL at load balancer)
+ALLOWED_HOSTS = ['*']
+
+# CSRF & CORS Settings for Production
+CSRF_TRUSTED_ORIGINS = [
+    'https://neetmentor-backend.onrender.com',
+    'https://neet-mentor.vercel.app',
+    'https://*.vercel.app',  # Allow all Vercel subdomains (Django 4.0+)
+]
+
+# Render / Production Settings
+# Trust the X-Forwarded-Proto header for SSL (Render terminates SSL at load balancer)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+    # SECURE_SSL_REDIRECT = True  <-- Temporarily Disabled to fix Redirect Loop/400 Error
 
 CORS_ALLOW_CREDENTIALS = True
