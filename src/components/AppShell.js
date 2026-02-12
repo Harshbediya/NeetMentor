@@ -127,7 +127,12 @@ export default function AppShell({ children, rightPanel }) {
                     <TimerIndicator />
 
 
-                    <button onClick={handleLogout} className="nav-link logout-btn" style={{ marginTop: 'auto', marginBottom: '16px' }}>
+                    <button onClick={toggleTheme} className="nav-link theme-toggle-row" style={{ marginTop: 'auto' }}>
+                        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                        {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                    </button>
+
+                    <button onClick={handleLogout} className="nav-link logout-btn" style={{ marginBottom: '16px' }}>
                         <LogOut size={20} />
                         Logout
                     </button>

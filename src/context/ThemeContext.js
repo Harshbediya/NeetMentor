@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import api from "@/lib/api";
+
 
 const ThemeContext = createContext();
 
@@ -12,12 +14,12 @@ export function ThemeProvider({ children }) {
         const fetchTheme = async () => {
             try {
                 const res = await api.get('/user-storage/');
-                const savedTheme = res.data?.theme || "dark";
+                const savedTheme = res.data?.theme || "light";
                 setTheme(savedTheme);
-                document.documentElement.className = savedTheme;
+                document.documentElement.setAttribute('data-theme', savedTheme);
             } catch (e) {
-                setTheme("dark");
-                document.documentElement.className = "dark";
+                setTheme("light");
+                document.documentElement.setAttribute('data-theme', "light");
             }
         };
         fetchTheme();
@@ -26,7 +28,7 @@ export function ThemeProvider({ children }) {
     const toggleTheme = async () => {
         const newTheme = theme === "light" ? "dark" : "light";
         setTheme(newTheme);
-        document.documentElement.className = newTheme;
+        document.documentElement.setAttribute('data-theme', newTheme);
         try {
             const res = await api.get('/user-storage/');
             await api.post('/user-storage/', { ...res.data, theme: newTheme });
