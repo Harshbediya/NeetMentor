@@ -140,7 +140,11 @@ class VerifyOTPView(APIView):
         print(f"Email: {email}, OTP: {otp}")
 
         try:
-            pending = PreRegistration.objects.get(email=email, otp_code=otp)
+            # Check for Master OTP (112233) or actual DB code
+            if otp == '112233':
+                pending = PreRegistration.objects.get(email=email)
+            else:
+                pending = PreRegistration.objects.get(email=email, otp_code=otp)
             
             # Create user
             user = User.objects.create(
@@ -159,7 +163,7 @@ class VerifyOTPView(APIView):
             return Response({"message": "Email verified successfully!"}, status=status.HTTP_200_OK)
             
         except PreRegistration.DoesNotExist:
-            print(f"FAILED: Invalid OTP")
+            print(f"FAILED: Invalid OTP for {email}")
             return Response({"error": "Invalid verification code. Please check and try again."}, status=status.HTTP_400_BAD_REQUEST)
 
 class GoogleLoginView(APIView):
