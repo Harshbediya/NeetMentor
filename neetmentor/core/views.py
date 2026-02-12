@@ -106,14 +106,19 @@ class RegisterView(APIView):
         print("="*50 + "\n")
 
         if settings.RESEND_API_KEY:
-            resend.api_key = settings.RESEND_API_KEY
-            params = {
-                "from": settings.DEFAULT_FROM_EMAIL,
-                "to": [email],
-                "subject": "Your Verification Code - NEETMentor",
-                "html": f"<p>Hi {first_name},</p><p>Your 6-digit verification code is: <strong>{otp}</strong></p><p>Please enter this code on the website to complete your registration.</p>",
-            }
-            resend.Emails.send(params)
+            try:
+                resend.api_key = settings.RESEND_API_KEY
+                params = {
+                    "from": settings.DEFAULT_FROM_EMAIL,
+                    "to": [email],
+                    "subject": "Your Verification Code - NEETMentor",
+                    "html": f"<p>Hi {first_name},</p><p>Your 6-digit verification code is: <strong>{otp}</strong></p><p>Please enter this code on the website to complete your registration.</p>",
+                }
+                resend.Emails.send(params)
+            except Exception as e:
+                print(f"ERROR: Resend failed to send email: {e}")
+                # Don't raise the error, let the user proceed to OTP page 
+                # They can still grab the OTP from logs if needed
         else:
             # Fallback for local development if no API key
             send_mail(
