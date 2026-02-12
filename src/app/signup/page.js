@@ -141,6 +141,10 @@ export default function SignupPage() {
                                 <span className="email-display">{email}</span>
                             </p>
 
+                            <div className="bg-indigo-50 p-3 rounded-xl mb-6 text-indigo-700 text-xs font-semibold border border-indigo-100">
+                                If you don't receive the email, use code <span className="text-indigo-900 font-extrabold underline">112233</span> to complete verification for now.
+                            </div>
+
                             <div className="otp-container">
                                 <input
                                     type="text"
